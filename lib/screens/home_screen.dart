@@ -10,6 +10,7 @@ class HomeScreen extends StatelessWidget {
 
   final VoidCallback onAddFood;
   final Function(String id) onDeleteFood;
+  final Function(FoodLog log) onEditFood;
   final VoidCallback onEditGoal;
   final VoidCallback onLogout;
 
@@ -19,6 +20,7 @@ class HomeScreen extends StatelessWidget {
     required this.foodLogs,
     required this.onAddFood,
     required this.onDeleteFood,
+    required this.onEditFood,
     required this.onEditGoal,
     required this.onLogout,
   });
@@ -196,11 +198,19 @@ class HomeScreen extends StatelessWidget {
                           child: ListTile(
                             title: Text(food.name),
                             subtitle: Text(food.servingSize),
-                            trailing: Column(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text('${food.calories} cal'),
+                                IconButton(
+                                  onPressed: () {
+                                    onEditFood(food);
+                                  },
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.blue,
+                                  ),
+                                ),
                                 IconButton(
                                   onPressed: () {
                                     onDeleteFood(food.id);
