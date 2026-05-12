@@ -3,17 +3,9 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -28,11 +20,6 @@ class DefaultFirebaseOptions {
         return macos;
       case TargetPlatform.windows:
         return windows;
-      case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -40,8 +27,8 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyA9vfVQCarv6-0UcLqHqjW4GY-QkqGhs5o',
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: dotenv.get('FIREBASE_API_KEY_WEB'),
     appId: '1:335280092583:web:d250e88c2308c6966cf282',
     messagingSenderId: '335280092583',
     projectId: 'calorie-tracker-3921e',
@@ -50,16 +37,16 @@ class DefaultFirebaseOptions {
     measurementId: 'G-53QGLJHMK8',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBR1NoYJGCTYkUQ71GcbWEqvxtzSMIqvr8',
+  static FirebaseOptions get android => FirebaseOptions(
+    apiKey: dotenv.get('FIREBASE_API_KEY_ANDROID'),
     appId: '1:335280092583:android:878ec989ac0b7cbc6cf282',
     messagingSenderId: '335280092583',
     projectId: 'calorie-tracker-3921e',
     storageBucket: 'calorie-tracker-3921e.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBJ2yHn0iLCqfv2Z6-iAJxVjLJ7gIWPtJg',
+  static FirebaseOptions get ios => FirebaseOptions(
+    apiKey: dotenv.get('FIREBASE_API_KEY_IOS'),
     appId: '1:335280092583:ios:389d030408e512926cf282',
     messagingSenderId: '335280092583',
     projectId: 'calorie-tracker-3921e',
@@ -67,8 +54,8 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.example.calorieTrackerApp',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBJ2yHn0iLCqfv2Z6-iAJxVjLJ7gIWPtJg',
+  static FirebaseOptions get macos => FirebaseOptions(
+    apiKey: dotenv.get('FIREBASE_API_KEY_IOS'),
     appId: '1:335280092583:ios:389d030408e512926cf282',
     messagingSenderId: '335280092583',
     projectId: 'calorie-tracker-3921e',
@@ -76,8 +63,8 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.example.calorieTrackerApp',
   );
 
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyA9vfVQCarv6-0UcLqHqjW4GY-QkqGhs5o',
+  static FirebaseOptions get windows => FirebaseOptions(
+    apiKey: dotenv.get('FIREBASE_API_KEY_WEB'),
     appId: '1:335280092583:web:03bc4bfa31fa71c46cf282',
     messagingSenderId: '335280092583',
     projectId: 'calorie-tracker-3921e',
