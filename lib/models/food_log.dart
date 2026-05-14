@@ -9,6 +9,7 @@ class FoodLog {
   final double fats;
   final String servingSize;
   final DateTime timestamp;
+  final bool isDeleted;
 
   // Fields for recalculation
   final double quantity;
@@ -28,6 +29,7 @@ class FoodLog {
     required this.fats,
     required this.servingSize,
     required this.timestamp,
+    this.isDeleted = false,
     required this.quantity,
     required this.availableMeasures,
     required this.selectedMeasureIndex,

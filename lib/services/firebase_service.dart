@@ -77,28 +77,40 @@ class FirebaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        final List measuresData = data['availableMeasures'] ?? [];
-        
-        return FoodLog(
-          id: doc.id,
-          name: data['name'] ?? 'Unknown',
-          calories: data['calories'] ?? 0,
-          protein: (data['protein'] ?? 0.0).toDouble(),
-          carbs: (data['carbs'] ?? 0.0).toDouble(),
-          fats: (data['fats'] ?? 0.0).toDouble(),
-          servingSize: data['servingSize'] ?? 'Unknown',
-          timestamp: (data['timestamp'] as Timestamp).toDate(),
-          quantity: (data['quantity'] ?? 1.0).toDouble(),
-          availableMeasures: measuresData.map((m) => Map<String, dynamic>.from(m)).toList(),
-          selectedMeasureIndex: data['selectedMeasureIndex'] ?? 0,
-          baseCalories: data['baseCalories'] ?? 0,
-          baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
-          baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),
-          baseFats: (data['baseFats'] ?? 0.0).toDouble(),
-        );
-      }).toList();
+      return snapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            final List measuresData = data['availableMeasures'] ?? [];
+
+            final dynamic rawTimestamp = data['timestamp'];
+            final DateTime timestamp = rawTimestamp != null 
+                ? (rawTimestamp as Timestamp).toDate() 
+                : DateTime.now();
+
+            return FoodLog(
+              id: doc.id,
+              name: data['name'] ?? 'Unknown',
+              calories: data['calories'] ?? 0,
+              protein: (data['protein'] ?? 0.0).toDouble(),
+              carbs: (data['carbs'] ?? 0.0).toDouble(),
+              fats: (data['fats'] ?? 0.0).toDouble(),
+              servingSize: data['servingSize'] ?? 'Unknown',
+              timestamp: timestamp,
+              isDeleted: data['isDeleted'] ?? false,
+              quantity: (data['quantity'] ?? 1.0).toDouble(),
+              availableMeasures: measuresData
+                  .where((m) => m != null)
+                  .map((m) => Map<String, dynamic>.from(m))
+                  .toList(),
+              selectedMeasureIndex: data['selectedMeasureIndex'] ?? 0,
+              baseCalories: data['baseCalories'] ?? 0,
+              baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
+              baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),
+              baseFats: (data['baseFats'] ?? 0.0).toDouble(),
+            );
+          })
+          .where((log) => !log.isDeleted)
+          .toList();
     });
   }
 
@@ -119,6 +131,7 @@ class FirebaseService {
       'fats': log.fats,
       'servingSize': log.servingSize,
       'timestamp': Timestamp.fromDate(log.timestamp),
+      'isDeleted': log.isDeleted,
       'quantity': log.quantity,
       'availableMeasures': log.availableMeasures,
       'selectedMeasureIndex': log.selectedMeasureIndex,
@@ -146,10 +159,80 @@ class FirebaseService {
       'servingSize': log.servingSize,
       'quantity': log.quantity,
       'selectedMeasureIndex': log.selectedMeasureIndex,
+      'isDeleted': log.isDeleted,
     });
   }
 
-  Future<void> deleteFoodLog(String logId) async {
+  Stream<List<FoodLog>> getDeletedFoodLogsStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('food_logs')
+        .where('isDeleted', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        final List measuresData = data['availableMeasures'] ?? [];
+
+        final dynamic rawTimestamp = data['timestamp'];
+        final DateTime timestamp = rawTimestamp != null 
+            ? (rawTimestamp as Timestamp).toDate() 
+            : DateTime.now();
+
+        return FoodLog(
+          id: doc.id,
+          name: data['name'] ?? 'Unknown',
+          calories: data['calories'] ?? 0,
+          protein: (data['protein'] ?? 0.0).toDouble(),
+          carbs: (data['carbs'] ?? 0.0).toDouble(),
+          fats: (data['fats'] ?? 0.0).toDouble(),
+          servingSize: data['servingSize'] ?? 'Unknown',
+          timestamp: timestamp,
+          isDeleted: data['isDeleted'] ?? false,
+          quantity: (data['quantity'] ?? 1.0).toDouble(),
+          availableMeasures: measuresData
+              .where((m) => m != null)
+              .map((m) => Map<String, dynamic>.from(m))
+              .toList(),
+          selectedMeasureIndex: data['selectedMeasureIndex'] ?? 0,
+          baseCalories: data['baseCalories'] ?? 0,
+          baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
+          baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),
+          baseFats: (data['baseFats'] ?? 0.0).toDouble(),
+        );
+      }).toList();
+    });
+  }
+
+  Future<void> restoreFoodLog(String logId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('food_logs')
+        .doc(logId)
+        .update({'isDeleted': false});
+  }
+
+  Future<void> softDeleteFoodLog(String logId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('food_logs')
+        .doc(logId)
+        .update({'isDeleted': true});
+  }
+
+  Future<void> hardDeleteFoodLog(String logId) async {
     final user = _auth.currentUser;
     if (user == null) return;
 

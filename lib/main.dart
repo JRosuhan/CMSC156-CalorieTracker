@@ -8,6 +8,7 @@ import 'models/food_log.dart';
 import 'screens/auth_screen.dart';
 import 'screens/goal_setting_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/bin_screen.dart';
 import 'services/edamam_service.dart';
 import 'services/firebase_service.dart' as fs;
 import 'dart:async';
@@ -36,6 +37,7 @@ enum AppScreen {
   goal,
   home,
   addFood,
+  bin,
 }
 
 class _MyAppState extends State<MyApp> {
@@ -43,13 +45,17 @@ class _MyAppState extends State<MyApp> {
   AppScreen currentScreen = AppScreen.auth;
 
   UserModel? currentUser;
+  DateTime selectedDate = DateTime.now();
 
   List<FoodLog> foodLogs = [];
+  List<FoodLog> deletedLogs = [];
   StreamSubscription? _foodLogsSubscription;
+  StreamSubscription? _deletedLogsSubscription;
 
   @override
   void dispose() {
     _foodLogsSubscription?.cancel();
+    _deletedLogsSubscription?.cancel();
     super.dispose();
   }
 
@@ -58,6 +64,13 @@ class _MyAppState extends State<MyApp> {
     _foodLogsSubscription = _firebaseService.getFoodLogsStream().listen((logs) {
       setState(() {
         foodLogs = logs;
+      });
+    });
+
+    _deletedLogsSubscription?.cancel();
+    _deletedLogsSubscription = _firebaseService.getDeletedFoodLogsStream().listen((logs) {
+      setState(() {
+        deletedLogs = logs;
       });
     });
   }
@@ -114,6 +127,17 @@ class _MyAppState extends State<MyApp> {
     required double baseCarbs,
     required double baseFats,
   }) async {
+    final now = DateTime.now();
+    // Combine selected date with current time
+    final logTimestamp = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      now.hour,
+      now.minute,
+      now.second,
+    );
+
     final newFood = FoodLog(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
@@ -122,7 +146,7 @@ class _MyAppState extends State<MyApp> {
       carbs: carbs,
       fats: fats,
       servingSize: servingSize,
-      timestamp: DateTime.now(),
+      timestamp: logTimestamp,
       quantity: quantity,
       availableMeasures: availableMeasures,
       selectedMeasureIndex: selectedMeasureIndex,
@@ -142,7 +166,15 @@ class _MyAppState extends State<MyApp> {
   // ---------------- DELETE FOOD ----------------
 
   Future<void> handleDeleteFood(String id) async {
-    await _firebaseService.deleteFoodLog(id);
+    await _firebaseService.softDeleteFoodLog(id);
+  }
+
+  Future<void> handleRestoreFood(String id) async {
+    await _firebaseService.restoreFoodLog(id);
+  }
+
+  Future<void> handlePermanentDeleteFood(String id) async {
+    await _firebaseService.hardDeleteFoodLog(id);
   }
 
   // ---------------- EDIT FOOD ----------------
@@ -294,9 +326,11 @@ class _MyAppState extends State<MyApp> {
   Future<void> handleLogout() async {
     await _firebaseService.signOut();
     _foodLogsSubscription?.cancel();
+    _deletedLogsSubscription?.cancel();
     setState(() {
       currentUser = null;
       foodLogs.clear();
+      deletedLogs.clear();
 
       currentScreen = AppScreen.auth;
     });
@@ -319,6 +353,12 @@ class _MyAppState extends State<MyApp> {
   void goBackHome() {
     setState(() {
       currentScreen = AppScreen.home;
+    });
+  }
+
+  void goToBin() {
+    setState(() {
+      currentScreen = AppScreen.bin;
     });
   }
 
@@ -369,17 +409,32 @@ class _MyAppState extends State<MyApp> {
         return HomeScreen(
           user: currentUser!,
           foodLogs: foodLogs,
+          selectedDate: selectedDate,
+          onDateChanged: (date) {
+            setState(() {
+              selectedDate = date;
+            });
+          },
           onAddFood: goToAddFood,
-          onDeleteFood: handleDeleteFood,
+          onDeleteFood: (id) => handleDeleteFood(id),
           onEditFood: (log) => showEditDialog(context, log),
           onEditGoal: goToGoalEdit,
           onLogout: handleLogout,
+          onGoToBin: goToBin,
         );
 
       case AppScreen.addFood:
         return AddFoodScreenWrapper(
           onBack: goBackHome,
           onAddFood: handleAddFood,
+        );
+
+      case AppScreen.bin:
+        return BinScreen(
+          deletedLogs: deletedLogs,
+          onRestore: (id) => handleRestoreFood(id),
+          onPermanentDelete: (id) => handlePermanentDeleteFood(id),
+          onBack: goBackHome,
         );
     }
   }
