@@ -16,6 +16,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onEditGoal;
   final VoidCallback onLogout;
   final VoidCallback onGoToBin;
+  final VoidCallback onGoToRecipes;
 
   const HomeScreen({
     super.key,
@@ -29,6 +30,7 @@ class HomeScreen extends StatefulWidget {
     required this.onEditGoal,
     required this.onLogout,
     required this.onGoToBin,
+    required this.onGoToRecipes,
   });
 
   @override
@@ -88,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Welcome back,\n${widget.user.email.split('@')[0]}',
+                                  'Welcome back,\n${(widget.user.email.isNotEmpty ? widget.user.email : "User").split('@')[0]}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 22,
@@ -237,20 +239,32 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: widget.onGoToBin,
-                              icon: const Icon(Icons.delete_sweep, size: 18),
-                              label: const Text('View Recycle Bin'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.grey[600],
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              TextButton.icon(
+                                onPressed: widget.onGoToRecipes,
+                                icon: const Icon(Icons.restaurant_menu, size: 18),
+                                label: const Text('My Recipes'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF059669),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  visualDensity: VisualDensity.compact,
                                 ),
-                                visualDensity: VisualDensity.compact,
                               ),
-                            ),
+                              TextButton.icon(
+                                onPressed: widget.onGoToBin,
+                                icon: const Icon(Icons.delete_sweep, size: 18),
+                                label: const Text('View Recycle Bin'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.grey[600],
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

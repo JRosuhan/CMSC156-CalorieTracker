@@ -3,6 +3,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/food_log.dart';
+import '../models/user_model.dart';
+import '../models/recipe_model.dart';
 
 class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -43,25 +45,122 @@ class FirebaseService {
 
   // --- USER DATA (GOAL) ---
 
-  Future<void> saveUserGoal(int goal) async {
+  Future<void> saveUserGoal(UserModel userModel) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    await _db.collection('users').doc(user.uid).set({
-      'dailyCalorieGoal': goal,
-      'email': user.email,
-    }, SetOptions(merge: true));
+    await _db.collection('users').doc(user.uid).set(
+      userModel.toMap(),
+      SetOptions(merge: true),
+    );
   }
 
-  Future<int?> fetchUserGoal() async {
+  Future<UserModel?> fetchUserGoal() async {
     final user = _auth.currentUser;
     if (user == null) return null;
 
     final doc = await _db.collection('users').doc(user.uid).get();
-    if (doc.exists) {
-      return doc.data()?['dailyCalorieGoal'] as int?;
+    if (doc.exists && doc.data() != null) {
+      return UserModel.fromMap(doc.data()!);
     }
     return null;
+  }
+
+  // --- RECIPES ---
+
+  Future<void> addRecipe(RecipeModel recipe) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .add(recipe.toMap());
+  }
+
+  Future<void> updateRecipe(RecipeModel recipe) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .doc(recipe.id)
+        .update(recipe.toMap());
+  }
+
+  Stream<List<RecipeModel>> getRecipesStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .where('isDeleted', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return RecipeModel.fromMap(doc.id, data);
+      }).toList();
+    });
+  }
+
+  Stream<List<RecipeModel>> getDeletedRecipesStream() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .where('isDeleted', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return RecipeModel.fromMap(doc.id, data);
+      }).toList();
+    });
+  }
+
+  Future<void> softDeleteRecipe(String recipeId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .doc(recipeId)
+        .update({'isDeleted': true});
+  }
+
+  Future<void> restoreRecipe(String recipeId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .doc(recipeId)
+        .update({'isDeleted': false});
+  }
+
+  Future<void> hardDeleteRecipe(String recipeId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('recipes')
+        .doc(recipeId)
+        .delete();
   }
 
   // --- FOOD LOGS ---

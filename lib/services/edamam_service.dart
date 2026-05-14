@@ -33,10 +33,12 @@ class EdamamService {
             'carbs': (nutrients['CHOCDF'] ?? 0.0).toDouble(),
             'fats': (nutrients['FAT'] ?? 0.0).toDouble(),
             'image': food['image'],
-            'measures': measures.map((m) => {
-              'label': m['label'],
-              'weight': (m['weight'] ?? 0.0).toDouble(),
-            }).toList(),
+            'measures': (measures.isEmpty) 
+              ? [{'label': 'Serving', 'weight': 100.0}]
+              : measures.map((m) => {
+                'label': m['label']?.toString() ?? 'Serving',
+                'weight': (m['weight'] ?? 100.0).toDouble(),
+              }).toList(),
           };
         }).toList();
       } else {
