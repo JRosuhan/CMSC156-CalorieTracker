@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/food_log.dart';
+import '../widgets/chatbot_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
@@ -68,265 +69,275 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // Top Section (Macros & Goal)
             Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF22C55E), Color(0xFF059669)],
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                // Top Section (Macros & Goal)
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF22C55E), Color(0xFF059669)],
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Welcome back,\n${(widget.user.email.isNotEmpty ? widget.user.email : "User").split('@')[0]}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Welcome back,\n${(widget.user.email.isNotEmpty ? widget.user.email : "User").split('@')[0]}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    GestureDetector(
+                                      onTap: () => _selectDate(context),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.calendar_today,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              _formatDate(widget.selectedDate),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_drop_down,
+                                              color: Colors.white,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => _selectDate(context),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.calendar_today,
-                                          color: Colors.white,
-                                          size: 14,
+                              ),
+                              IconButton(
+                                onPressed: widget.onLogout,
+                                icon: const Icon(
+                                  Icons.logout,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 12),
+
+
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(.2),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                          'Daily Goal',
+                                          style: TextStyle(color: Colors.white),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _formatDate(widget.selectedDate),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
+                                        TextButton(
+                                          onPressed: widget.onEditGoal,
+                                          child: const Text(
+                                            'Edit',
+                                            style: TextStyle(color: Colors.white),
                                           ),
-                                        ),
-                                        const Icon(
-                                          Icons.arrow_drop_down,
-                                          color: Colors.white,
                                         ),
                                       ],
                                     ),
-                                  ),
+
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '$totalCalories',
+                                          style: const TextStyle(
+                                            fontSize: 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '/ ${widget.user.dailyCalorieGoal} cal',
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 10),
+
+                                    LinearProgressIndicator(
+                                      value: progress,
+                                      minHeight: 8,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            onPressed: widget.onLogout,
-                            icon: const Icon(
-                              Icons.logout,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.2),
-                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                      'Daily Goal',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                    TextButton(
-                                      onPressed: widget.onEditGoal,
-                                      child: const Text(
-                                        'Edit',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    ),
-                                  ],
-                                ),
 
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  macroCard(
+                                    'Protein',
+                                    '${totalProtein.toStringAsFixed(1)}g',
+                                    Colors.blue,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  macroCard(
+                                    'Carbs',
+                                    '${totalCarbs.toStringAsFixed(1)}g',
+                                    Colors.orange,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  macroCard(
+                                    'Fats',
+                                    '${totalFats.toStringAsFixed(1)}g',
+                                    Colors.purple,
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: widget.onGoToRecipes,
+                                    icon: const Icon(Icons.restaurant_menu, size: 18),
+                                    label: const Text('My Recipes'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF059669),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: widget.onGoToBin,
+                                    icon: const Icon(Icons.delete_sweep, size: 18),
+                                    label: const Text('View Recycle Bin'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.grey[600],
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                // Bottom List Section (Food Logs)
+                Expanded(
+                  child: dailyLogs.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 40),
+                            child: Text('No meals logged for this day'),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: dailyLogs.length,
+                          itemBuilder: (context, index) {
+                            final food = dailyLogs[index];
+
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 6,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: ListTile(
+                                title: Text(food.name),
+                                subtitle: Text(food.servingSize),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      '$totalCalories',
-                                      style: const TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                    Text('${food.calories} cal'),
+                                    IconButton(
+                                      onPressed: () {
+                                        widget.onEditFood(food);
+                                      },
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.blue,
+                                        size: 20,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '/ ${widget.user.dailyCalorieGoal} cal',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
+                                    IconButton(
+                                      onPressed: () {
+                                        widget.onDeleteFood(food.id);
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: 20,
                                       ),
                                     ),
                                   ],
                                 ),
-
-                                const SizedBox(height: 10),
-
-                                LinearProgressIndicator(
-                                  value: progress,
-                                  minHeight: 8,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              macroCard(
-                                'Protein',
-                                '${totalProtein.toStringAsFixed(1)}g',
-                                Colors.blue,
                               ),
-                              const SizedBox(width: 8),
-                              macroCard(
-                                'Carbs',
-                                '${totalCarbs.toStringAsFixed(1)}g',
-                                Colors.orange,
-                              ),
-                              const SizedBox(width: 8),
-                              macroCard(
-                                'Fats',
-                                '${totalFats.toStringAsFixed(1)}g',
-                                Colors.purple,
-                              ),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              TextButton.icon(
-                                onPressed: widget.onGoToRecipes,
-                                icon: const Icon(Icons.restaurant_menu, size: 18),
-                                label: const Text('My Recipes'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFF059669),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: widget.onGoToBin,
-                                icon: const Icon(Icons.delete_sweep, size: 18),
-                                label: const Text('View Recycle Bin'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.grey[600],
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                            );
+                          },
+                        ),
                 ),
-
-            // Bottom List Section (Food Logs)
-            Expanded(
-              child: dailyLogs.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 40),
-                        child: Text('No meals logged for this day'),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: dailyLogs.length,
-                      itemBuilder: (context, index) {
-                        final food = dailyLogs[index];
-
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 6,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: ListTile(
-                            title: Text(food.name),
-                            subtitle: Text(food.servingSize),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('${food.calories} cal'),
-                                IconButton(
-                                  onPressed: () {
-                                    widget.onEditFood(food);
-                                  },
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.blue,
-                                    size: 20,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    widget.onDeleteFood(food.id);
-                                  },
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+              ],
+            ),
+            // Chatbot overlay
+            const Positioned(
+              right: 0,
+              bottom: 80, // Positioned above the FAB
+              child: ChatbotWidget(),
             ),
           ],
         ),

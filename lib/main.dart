@@ -14,6 +14,7 @@ import 'screens/recipe_list_screen.dart';
 import 'screens/recipe_builder_screen.dart';
 import 'services/edamam_service.dart';
 import 'services/firebase_service.dart' as fs;
+import 'services/chatbot_api_service.dart';
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -657,6 +658,7 @@ class _MyAppState extends State<MyApp> {
     _foodLogsSubscription?.cancel();
     _deletedLogsSubscription?.cancel();
     _recipesSubscription?.cancel();
+    ChatbotApiService().clearHistory();
     setState(() {
       currentUser = null;
       foodLogs.clear();
