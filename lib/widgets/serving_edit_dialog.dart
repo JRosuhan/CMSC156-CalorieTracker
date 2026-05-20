@@ -55,22 +55,28 @@ Future<void> showServingEditDialog({
           final double calculatedFats = baseFats * factor;
 
           return AlertDialog(
-            title: Text(title),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Adjust your serving size:'),
-                const SizedBox(height: 20),
+                const Text('Adjust your serving size:', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 24),
                 Row(
                   children: [
                     SizedBox(
-                      width: 70,
+                      width: 80,
                       child: TextField(
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         textAlign: TextAlign.center,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.zero,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
+                          ),
                         ),
                         controller: quantityController,
                         onChanged: (val) {
@@ -85,17 +91,18 @@ Future<void> showServingEditDialog({
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int>(
                             value: currentMeasureIndex,
                             isExpanded: true,
+                            icon: const Icon(Icons.keyboard_arrow_down),
                             items: List.generate(measures.length, (i) {
                               return DropdownMenuItem(
                                 value: i,
-                                child: Text(measures[i]['label']?.toString() ?? 'Serving'),
+                                child: Text(measures[i]['label']?.toString() ?? 'Serving', style: const TextStyle(fontWeight: FontWeight.w500)),
                               );
                             }),
                             onChanged: (val) {
@@ -115,32 +122,33 @@ Future<void> showServingEditDialog({
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.1)),
                   ),
                   child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('New Total:', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const Text('New Total', style: TextStyle(fontWeight: FontWeight.w500)),
                           Text(
-                            '$calculatedCalories cal',
+                            '$calculatedCalories kcal',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                              fontSize: 20,
                               color: Color(0xFF059669),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const Divider(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          MacroInfo(label: 'P', value: '${calculatedProtein.toStringAsFixed(1)}g'),
-                          MacroInfo(label: 'C', value: '${calculatedCarbs.toStringAsFixed(1)}g'),
-                          MacroInfo(label: 'F', value: '${calculatedFats.toStringAsFixed(1)}g'),
+                          MacroInfo(label: 'Protein', value: '${calculatedProtein.toStringAsFixed(1)}g'),
+                          MacroInfo(label: 'Carbs', value: '${calculatedCarbs.toStringAsFixed(1)}g'),
+                          MacroInfo(label: 'Fats', value: '${calculatedFats.toStringAsFixed(1)}g'),
                         ],
                       ),
                     ],
@@ -148,16 +156,17 @@ Future<void> showServingEditDialog({
                 ),
               ],
             ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
               ),
               ElevatedButton(
                 onPressed: () {
                   final String unitLabel = measures[currentMeasureIndex]['label']?.toString() ?? 'Serving';
                   final String servingSize = currentQuantity == 1.0
-                      ? unitLabel
+                      ? '1 $unitLabel'
                       : '${currentQuantity.toString().replaceAll('.0', '')} $unitLabel';
 
                   onSave(ServingEditResult(
@@ -171,8 +180,12 @@ Future<void> showServingEditDialog({
                   ));
                   Navigator.pop(context);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-                child: const Text('Update', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Update Meal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           );

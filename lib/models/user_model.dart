@@ -21,6 +21,8 @@ class UserModel {
     this.goalType,
   });
 
+  bool get needsSetup => age == null || gender == null || weight == null || height == null;
+
   Map<String, dynamic> toMap() {
     return {
       'email': email,

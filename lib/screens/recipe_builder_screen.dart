@@ -1,360 +1,330 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/food_log.dart';
-import '../models/recipe_model.dart';
-import '../services/edamam_service.dart';
-import '../widgets/macro_info.dart';
+import '../providers/auth_provider.dart';
+import '../providers/ui_state_providers.dart';
+import '../utils/error_translator.dart';
 import '../widgets/serving_edit_dialog.dart';
-import 'dart:async';
+import 'add_food_screen.dart';
 
-class RecipeBuilderScreen extends StatefulWidget {
-  final RecipeModel? initialRecipe;
-  final Function(RecipeModel recipe) onSaveRecipe;
-  final VoidCallback onBack;
-
-  const RecipeBuilderScreen({
-    super.key,
-    this.initialRecipe,
-    required this.onSaveRecipe,
-    required this.onBack,
-  });
+class RecipeBuilderScreen extends ConsumerStatefulWidget {
+  const RecipeBuilderScreen({super.key});
 
   @override
-  State<RecipeBuilderScreen> createState() => _RecipeBuilderScreenState();
+  ConsumerState<RecipeBuilderScreen> createState() => _RecipeBuilderScreenState();
 }
 
-class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
+class _RecipeBuilderScreenState extends ConsumerState<RecipeBuilderScreen> {
+  final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _servingsController;
-  final List<FoodLog> _ingredients = [];
-  
-  late EdamamService _edamamService;
-  List<Map<String, dynamic>> _foodResults = [];
-  bool _isLoading = false;
-  bool _isSaving = false;
-  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _edamamService = EdamamService();
-    _nameController = TextEditingController(text: widget.initialRecipe?.name ?? '');
-    _servingsController = TextEditingController(text: (widget.initialRecipe?.servings ?? 1).toString());
-    if (widget.initialRecipe != null) {
-      _ingredients.addAll(widget.initialRecipe!.ingredients);
-    }
+    final initialRecipe = ref.read(editingRecipeProvider);
+    _nameController = TextEditingController(text: initialRecipe?.name ?? '');
+    _servingsController = TextEditingController(text: initialRecipe?.servings.toString() ?? '1');
+    
+    _nameController.addListener(() {
+      ref.read(editingRecipeProvider.notifier).updateName(_nameController.text);
+    });
+    _servingsController.addListener(() {
+      final s = int.tryParse(_servingsController.text) ?? 1;
+      ref.read(editingRecipeProvider.notifier).updateServings(s);
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _servingsController.dispose();
-    _debounce?.cancel();
     super.dispose();
   }
 
-  void _onSearchChanged(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 1000), () async {
-      if (query.length < 3) {
-        if (mounted) {
-          setState(() {
-            _foodResults = [];
-            _isLoading = false;
-          });
-        }
+  Future<void> _saveRecipe() async {
+    if (_formKey.currentState!.validate()) {
+      final recipe = ref.read(editingRecipeProvider);
+      if (recipe == null || recipe.ingredients.isEmpty) {
+        _showSnackBar('Please add at least one ingredient', isError: true);
         return;
       }
 
-      if (mounted) {
-        setState(() {
-          _isLoading = true;
-        });
-      }
-
       try {
-        final results = await _edamamService.searchFood(query);
+        final service = ref.read(firebaseServiceProvider);
+        if (recipe.id.isEmpty) {
+          await service.addRecipe(recipe);
+          _showSnackBar('Recipe created! 👨‍🍳');
+        } else {
+          await service.updateRecipe(recipe);
+          _showSnackBar('Recipe updated! ✨');
+        }
         if (mounted) {
-          setState(() {
-            _foodResults = results;
-            _isLoading = false;
-          });
+          ref.read(editingRecipeProvider.notifier).setRecipe(null);
+          context.pop();
         }
       } catch (e) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        _showSnackBar(ErrorTranslator.translate(e), isError: true);
       }
-    });
-  }
-
-  void _addIngredient(Map<String, dynamic> food, double quantity, int mIdx) {
-    final List measures = food['measures'] ?? [];
-    final double unitWeight = measures[mIdx]['weight'] ?? 100.0;
-    final String unitLabel = measures[mIdx]['label']?.toString() ?? 'Serving';
-    
-    final double totalWeight = quantity * unitWeight;
-    final double factor = totalWeight / 100.0;
-
-    setState(() {
-      _ingredients.add(FoodLog(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: food['name'] ?? 'Unknown',
-        calories: ((food['calories'] ?? 0) * factor).toInt(),
-        protein: (food['protein'] ?? 0.0) * factor,
-        carbs: (food['carbs'] ?? 0.0) * factor,
-        fats: (food['fats'] ?? 0.0) * factor,
-        servingSize: quantity == 1.0 ? unitLabel : '${quantity.toString().replaceAll('.0', '')} $unitLabel',
-        timestamp: DateTime.now(),
-        quantity: quantity,
-        availableMeasures: List<Map<String, dynamic>>.from(measures),
-        selectedMeasureIndex: mIdx,
-        baseCalories: food['calories'] ?? 0,
-        baseProtein: (food['protein'] ?? 0.0).toDouble(),
-        baseCarbs: (food['carbs'] ?? 0.0).toDouble(),
-        baseFats: (food['fats'] ?? 0.0).toDouble(),
-      ));
-      _foodResults = []; // Clear results after adding
-    });
-  }
-
-  void _removeIngredient(int index) {
-    setState(() {
-      _ingredients.removeAt(index);
-    });
-  }
-
-  void _editIngredient(int index) {
-    final ing = _ingredients[index];
-    final List<Map<String, dynamic>> measures = ing.availableMeasures.isNotEmpty
-        ? ing.availableMeasures
-        : [
-            {'label': 'Serving', 'weight': 100.0}
-          ];
-    int currentMeasureIndex = ing.selectedMeasureIndex;
-    if (currentMeasureIndex < 0 || currentMeasureIndex >= measures.length) {
-      currentMeasureIndex = 0;
     }
+  }
 
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _editIngredient(int index, FoodLog ingredient) {
     showServingEditDialog(
       context: context,
-      title: 'Edit ${ing.name}',
-      initialQuantity: ing.quantity,
-      initialMeasureIndex: currentMeasureIndex,
-      measures: measures,
-      baseCalories: ing.baseCalories,
-      baseProtein: ing.baseProtein,
-      baseCarbs: ing.baseCarbs,
-      baseFats: ing.baseFats,
+      title: 'Edit ${ingredient.name}',
+      initialQuantity: ingredient.quantity,
+      initialMeasureIndex: ingredient.selectedMeasureIndex,
+      measures: ingredient.availableMeasures,
+      baseCalories: ingredient.baseCalories,
+      baseProtein: ingredient.baseProtein,
+      baseCarbs: ingredient.baseCarbs,
+      baseFats: ingredient.baseFats,
       onSave: (result) {
-        setState(() {
-          _ingredients[index] = FoodLog(
-            id: ing.id,
-            name: ing.name,
-            calories: result.calories,
-            protein: result.protein,
-            carbs: result.carbs,
-            fats: result.fats,
-            servingSize: result.servingSize,
-            timestamp: ing.timestamp,
-            quantity: result.quantity,
-            availableMeasures: measures,
-            selectedMeasureIndex: result.measureIndex,
-            baseCalories: ing.baseCalories,
-            baseProtein: ing.baseProtein,
-            baseCarbs: ing.baseCarbs,
-            baseFats: ing.baseFats,
-          );
-        });
+        final updated = FoodLog(
+          id: ingredient.id,
+          name: ingredient.name,
+          calories: result.calories,
+          protein: result.protein,
+          carbs: result.carbs,
+          fats: result.fats,
+          servingSize: result.servingSize,
+          timestamp: ingredient.timestamp,
+          quantity: result.quantity,
+          availableMeasures: ingredient.availableMeasures,
+          selectedMeasureIndex: result.measureIndex,
+          baseCalories: ingredient.baseCalories,
+          baseProtein: ingredient.baseProtein,
+          baseCarbs: ingredient.baseCarbs,
+          baseFats: ingredient.baseFats,
+        );
+        ref.read(editingRecipeProvider.notifier).updateIngredient(index, updated);
       },
     );
   }
 
-  Future<void> _saveRecipe() async {
-    if (_isSaving) return;
-
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a recipe name')),
-      );
-      return;
-    }
-    if (_ingredients.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one ingredient')),
-      );
-      return;
-    }
-
-    final servings = int.tryParse(_servingsController.text) ?? 1;
-    if (servings <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Servings must be at least 1')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      final recipe = RecipeModel(
-        id: widget.initialRecipe?.id ?? '',
-        name: _nameController.text,
-        ingredients: _ingredients,
-        servings: servings,
-      );
-
-      await widget.onSaveRecipe(recipe);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save recipe: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
+  void _openIngredientSearch() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Add Ingredient',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: AddFoodScreenContent(
+                  onFoodSelected: (params) {
+                    final ingredient = FoodLog(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      name: params['name'],
+                      calories: params['calories'],
+                      protein: params['protein'],
+                      carbs: params['carbs'],
+                      fats: params['fats'],
+                      servingSize: params['servingSize'],
+                      timestamp: DateTime.now(),
+                      quantity: params['quantity'],
+                      availableMeasures: List<Map<String, dynamic>>.from(params['availableMeasures']),
+                      selectedMeasureIndex: params['selectedMeasureIndex'],
+                      baseCalories: params['baseCalories'],
+                      baseProtein: params['baseProtein'],
+                      baseCarbs: params['baseCarbs'],
+                      baseFats: params['baseFats'],
+                    );
+                    ref.read(editingRecipeProvider.notifier).addIngredient(ingredient);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final int servings = int.tryParse(_servingsController.text) ?? 1;
-    final totalCals = _ingredients.fold(0.0, (sum, i) => sum + i.calories);
-    final totalProtein = _ingredients.fold(0.0, (sum, i) => sum + i.protein);
-    final totalCarbs = _ingredients.fold(0.0, (sum, i) => sum + i.carbs);
-    final totalFats = _ingredients.fold(0.0, (sum, i) => sum + i.fats);
-
-    final calsPerServing = servings > 0 ? (totalCals / servings).round() : 0;
-    final proteinPerServing = servings > 0 ? totalProtein / servings : 0.0;
-    final carbsPerServing = servings > 0 ? totalCarbs / servings : 0.0;
-    final fatsPerServing = servings > 0 ? totalFats / servings : 0.0;
+    final recipe = ref.watch(editingRecipeProvider);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
-        title: Text(widget.initialRecipe == null ? 'Recipe Builder' : 'Edit Recipe'),
+        title: Text(recipe?.id.isEmpty ?? true ? 'New Recipe' : 'Edit Recipe', 
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _isSaving ? null : widget.onBack,
+          icon: const Icon(Icons.close, color: Colors.black),
+          onPressed: () {
+            ref.read(editingRecipeProvider.notifier).setRecipe(null);
+            context.pop();
+          },
         ),
         actions: [
-          _isSaving
-              ? const Center(child: Padding(padding: EdgeInsets.only(right: 16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
-              : TextButton(
-                  onPressed: _saveRecipe,
-                  child: const Text('Save', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                ),
+          TextButton(
+            onPressed: _saveRecipe,
+            child: const Text('Save', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Recipe Name (e.g., Chicken Adobo)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _servingsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Number of Servings',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (val) => setState(() {}),
-                ),
-              ],
-            ),
-          ),
-          
-          const Divider(),
-          
-          Expanded(
-            child: ListView(
-              children: [
-                if (_ingredients.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text('Ingredients', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
-                  ...List.generate(_ingredients.length, (index) {
-                    final ing = _ingredients[index];
-                    return ListTile(
-                      title: Text(ing.name),
-                      subtitle: Text('${ing.servingSize} - ${ing.calories} cal'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
-                            onPressed: () => _editIngredient(index),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          children: [
+            _buildSectionHeader('GENERAL INFO'),
+            _buildGroupedContainer([
+              _buildInputRow('Name', _nameController, 'e.g. Pasta', Icons.restaurant_menu),
+              const Divider(height: 1, indent: 56),
+              _buildInputRow('Servings', _servingsController, '1', Icons.people_outline, isNumeric: true),
+            ]),
+            
+            const SizedBox(height: 32),
+            _buildSectionHeader('INGREDIENTS'),
+            if (recipe != null && recipe.ingredients.isNotEmpty)
+              _buildGroupedContainer(
+                recipe.ingredients.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final item = entry.value;
+                  return Column(
+                    children: [
+                      Dismissible(
+                        key: Key('ingredient_${idx}_${item.id}'),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (_) {
+                          ref.read(editingRecipeProvider.notifier).removeIngredient(idx);
+                        },
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
-                            onPressed: () => _removeIngredient(index),
-                          ),
-                        ],
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: ListTile(
+                          onTap: () => _editIngredient(idx, item),
+                          leading: const Icon(Icons.drag_handle, color: Colors.grey),
+                          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                          subtitle: Text('${item.servingSize} • ${item.calories} kcal'),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                        ),
                       ),
-                    );
-                  }),
-                  const Divider(),
-                ],
-                
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    onChanged: _onSearchChanged,
-                    decoration: InputDecoration(
-                      hintText: 'Search ingredients to add...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                
-                if (_isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  ..._foodResults.map((food) => _buildSearchResultCard(food)),
-              ],
+                      if (idx < recipe.ingredients.length - 1)
+                        const Divider(height: 1, indent: 16),
+                    ],
+                  );
+                }).toList(),
+              ),
+            
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextButton.icon(
+                onPressed: _openIngredientSearch,
+                icon: const Icon(Icons.add_circle_outline, color: Color(0xFF10B981)),
+                label: const Text('Add Ingredient', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+              ),
             ),
-          ),
-          
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.green.shade50,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Total Per Serving:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('$calsPerServing cal', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    MacroInfo(label: 'P', value: '${proteinPerServing.toStringAsFixed(1)}g'),
-                    MacroInfo(label: 'C', value: '${carbsPerServing.toStringAsFixed(1)}g'),
-                    MacroInfo(label: 'F', value: '${fatsPerServing.toStringAsFixed(1)}g'),
-                  ],
-                ),
-              ],
+
+            if (recipe != null && recipe.ingredients.isNotEmpty) ...[
+              const SizedBox(height: 32),
+              _buildSectionHeader('NUTRITION PER SERVING'),
+              _buildGroupedContainer([
+                _buildNutritionRow('Calories', '${recipe.caloriesPerServing} kcal'),
+                const Divider(height: 1, indent: 16),
+                _buildNutritionRow('Protein', '${recipe.proteinPerServing.toStringAsFixed(1)}g'),
+                const Divider(height: 1, indent: 16),
+                _buildNutritionRow('Carbs', '${recipe.carbsPerServing.toStringAsFixed(1)}g'),
+                const Divider(height: 1, indent: 16),
+                _buildNutritionRow('Fats', '${recipe.fatsPerServing.toStringAsFixed(1)}g'),
+              ]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Color(0xFF6E6E73)),
+      ),
+    );
+  }
+
+  Widget _buildGroupedContainer(List<Widget> children) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildInputRow(String label, TextEditingController controller, String hint, IconData icon, {bool isNumeric = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey, size: 22),
+          const SizedBox(width: 16),
+          Text(label, style: const TextStyle(fontSize: 17)),
+          const Spacer(),
+          SizedBox(
+            width: 150,
+            child: TextFormField(
+              controller: controller,
+              textAlign: TextAlign.end,
+              keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: hint,
+                hintStyle: TextStyle(color: Colors.grey[400]),
+              ),
+              style: const TextStyle(fontSize: 17),
+              validator: (val) => val == null || val.isEmpty ? 'Required' : null,
             ),
           ),
         ],
@@ -362,68 +332,15 @@ class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
     );
   }
 
-  Widget _buildSearchResultCard(Map<String, dynamic> food) {
-    food['quantity'] ??= 1.0;
-    final List measures = food['measures'] ?? [];
-    if (measures.isEmpty) {
-      measures.add({'label': 'Serving', 'weight': 100.0});
-    }
-
-    food['selectedMeasureIndex'] ??= measures.indexWhere(
-      (m) => m['label'].toString().toLowerCase() == 'gram'
-    );
-    if (food['selectedMeasureIndex'] == -1 || food['selectedMeasureIndex'] >= measures.length) {
-      food['selectedMeasureIndex'] = 0;
-    }
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            ListTile(
-              title: Text(food['name'] ?? 'Unknown'),
-              subtitle: Text('${food['calories'] ?? 0} cal / 100g'),
-            ),
-            Row(
-              children: [
-                SizedBox(
-                  width: 50,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(isDense: true),
-                    onChanged: (val) => food['quantity'] = double.tryParse(val) ?? 1.0,
-                    controller: TextEditingController(text: food['quantity'].toString().replaceAll('.0', '')),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButton<int>(
-                    value: food['selectedMeasureIndex'],
-                    isExpanded: true,
-                    items: List.generate(measures.length, (i) {
-                      return DropdownMenuItem(
-                        value: i,
-                        child: Text(measures[i]['label']?.toString() ?? 'Serving'),
-                      );
-                    }),
-                    onChanged: (val) {
-                      setState(() {
-                        food['selectedMeasureIndex'] = val;
-                      });
-                    },
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.green),
-                  onPressed: () => _addIngredient(food, food['quantity'] ?? 1.0, food['selectedMeasureIndex'] ?? 0),
-                ),
-              ],
-            ),
-          ],
-        ),
+  Widget _buildNutritionRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 17)),
+          Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black)),
+        ],
       ),
     );
   }
