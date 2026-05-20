@@ -1,5 +1,6 @@
 // services/firebase_service.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/food_log.dart';
@@ -22,7 +23,7 @@ class FirebaseService {
         password: password,
       );
     } catch (e) {
-      print('Sign Up Error: $e');
+      debugPrint('Sign Up Error: $e');
       rethrow;
     }
   }
@@ -34,7 +35,7 @@ class FirebaseService {
         password: password,
       );
     } catch (e) {
-      print('Sign In Error: $e');
+      debugPrint('Sign In Error: $e');
       rethrow;
     }
   }
@@ -179,12 +180,31 @@ class FirebaseService {
       return snapshot.docs
           .map((doc) {
             final data = doc.data();
-            final List measuresData = data['availableMeasures'] ?? [];
-
             final dynamic rawTimestamp = data['timestamp'];
             final DateTime timestamp = rawTimestamp != null 
                 ? (rawTimestamp as Timestamp).toDate() 
                 : DateTime.now();
+
+            final List measuresData = data['availableMeasures'] ?? [];
+            final List<Map<String, dynamic>> availableMeasures = measuresData
+                .where((m) => m != null)
+                .map((m) {
+                  final map = Map<String, dynamic>.from(m);
+                  final weight = map['weight'];
+                  map['weight'] = (weight is num) ? weight.toDouble() : 100.0;
+                  map['label'] = map['label']?.toString() ?? 'serving';
+                  return map;
+                })
+                .toList();
+
+            if (availableMeasures.isEmpty) {
+              availableMeasures.add({'label': 'serving', 'weight': 100.0});
+            }
+
+            int selectedMeasureIndex = data['selectedMeasureIndex'] ?? 0;
+            if (selectedMeasureIndex < 0 || selectedMeasureIndex >= availableMeasures.length) {
+              selectedMeasureIndex = 0;
+            }
 
             return FoodLog(
               id: doc.id,
@@ -197,11 +217,8 @@ class FirebaseService {
               timestamp: timestamp,
               isDeleted: data['isDeleted'] ?? false,
               quantity: (data['quantity'] ?? 1.0).toDouble(),
-              availableMeasures: measuresData
-                  .where((m) => m != null)
-                  .map((m) => Map<String, dynamic>.from(m))
-                  .toList(),
-              selectedMeasureIndex: data['selectedMeasureIndex'] ?? 0,
+              availableMeasures: availableMeasures,
+              selectedMeasureIndex: selectedMeasureIndex,
               baseCalories: data['baseCalories'] ?? 0,
               baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
               baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),
@@ -276,11 +293,30 @@ class FirebaseService {
       return snapshot.docs.map((doc) {
         final data = doc.data();
         final List measuresData = data['availableMeasures'] ?? [];
+        final List<Map<String, dynamic>> availableMeasures = measuresData
+            .where((m) => m != null)
+            .map((m) {
+              final map = Map<String, dynamic>.from(m);
+              final weight = map['weight'];
+              map['weight'] = (weight is num) ? weight.toDouble() : 100.0;
+              map['label'] = map['label']?.toString() ?? 'serving';
+              return map;
+            })
+            .toList();
+
+        if (availableMeasures.isEmpty) {
+          availableMeasures.add({'label': 'serving', 'weight': 100.0});
+        }
 
         final dynamic rawTimestamp = data['timestamp'];
         final DateTime timestamp = rawTimestamp != null 
             ? (rawTimestamp as Timestamp).toDate() 
             : DateTime.now();
+
+        int selectedMeasureIndex = data['selectedMeasureIndex'] ?? 0;
+        if (selectedMeasureIndex < 0 || selectedMeasureIndex >= availableMeasures.length) {
+          selectedMeasureIndex = 0;
+        }
 
         return FoodLog(
           id: doc.id,
@@ -293,11 +329,8 @@ class FirebaseService {
           timestamp: timestamp,
           isDeleted: data['isDeleted'] ?? false,
           quantity: (data['quantity'] ?? 1.0).toDouble(),
-          availableMeasures: measuresData
-              .where((m) => m != null)
-              .map((m) => Map<String, dynamic>.from(m))
-              .toList(),
-          selectedMeasureIndex: data['selectedMeasureIndex'] ?? 0,
+            availableMeasures: availableMeasures,
+            selectedMeasureIndex: selectedMeasureIndex,
           baseCalories: data['baseCalories'] ?? 0,
           baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
           baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),

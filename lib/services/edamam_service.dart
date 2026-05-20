@@ -1,6 +1,7 @@
 // services/edamam_service.dart
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -45,7 +46,7 @@ class EdamamService {
         throw Exception('Failed to load food data');
       }
     } catch (e) {
-      print('Error searching food: $e');
+      debugPrint('Error searching food: $e');
       return [];
     }
   }

@@ -22,12 +22,35 @@ class _AuthScreenState extends State<AuthScreen> {
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
   final FirebaseService _firebaseService = FirebaseService();
+
+  void _showResetHint() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Password reset is not available yet.'),
+      ),
+    );
+  }
 
   Future<void> handleSubmit() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       setState(() {
         errorMessage = 'Please fill in all fields';
+      });
+      return;
+    }
+
+    if (isSignUp && confirmPasswordController.text.isEmpty) {
+      setState(() {
+        errorMessage = 'Please confirm your password';
+      });
+      return;
+    }
+
+    if (isSignUp && passwordController.text != confirmPasswordController.text) {
+      setState(() {
+        errorMessage = 'Passwords do not match';
       });
       return;
     }
@@ -64,6 +87,14 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -95,22 +126,39 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 const SizedBox(height: 20),
 
-                const Text(
-                  'NomNomTracker',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+                if (!isSignUp)
+                  const Text(
+                    'NomNomTracker',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                else
+                  const Text(
+                    'Create your account',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 8),
 
-                const Text(
-                  'Track your nutrition journey',
-                  style: TextStyle(
-                    color: Colors.grey,
+                if (!isSignUp)
+                  const Text(
+                    'Track your nutrition journey',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  )
+                else
+                  const Text(
+                    'Start tracking meals in minutes',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 40),
 
@@ -149,12 +197,51 @@ class _AuthScreenState extends State<AuthScreen> {
                   obscureText: true,
                   decoration: InputDecoration(
                     hintText: '••••••••',
-                    labelText: 'Password',
+                    labelText: isSignUp ? 'Create Password' : 'Password',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                 ),
+
+                if (!isSignUp)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _showResetHint,
+                      child: const Text(
+                        'Forgot password?',
+                        style: TextStyle(color: Color(0xFF10B981)),
+                      ),
+                    ),
+                  ),
+
+                if (isSignUp) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      hintText: '••••••••',
+                      labelText: 'Verify Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ],
+
+                if (isSignUp)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Use at least 6 characters',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 24),
 
