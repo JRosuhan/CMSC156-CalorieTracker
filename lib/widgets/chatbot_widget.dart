@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/chatbot_api_service.dart';
+import '../providers/data_providers.dart';
 
-class ChatbotWidget extends StatefulWidget {
+class ChatbotWidget extends ConsumerStatefulWidget {
   const ChatbotWidget({super.key});
 
   @override
-  State<ChatbotWidget> createState() => _ChatbotWidgetState();
+  ConsumerState<ChatbotWidget> createState() => _ChatbotWidgetState();
 }
 
-class _ChatbotWidgetState extends State<ChatbotWidget> {
-  final ChatbotApiService _apiService = ChatbotApiService();
+class _ChatbotWidgetState extends ConsumerState<ChatbotWidget> {
+  late ChatbotApiService _apiService;
   final TextEditingController _controller = TextEditingController();
   late List<Map<String, String>> _messages;
   bool _isExpanded = false;
@@ -19,6 +21,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
   @override
   void initState() {
     super.initState();
+    _apiService = ref.read(chatbotApiServiceProvider);
     _messages = _apiService.uiMessages;
   }
 
@@ -88,6 +91,9 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
     } else if (action == 'add_recipe_ingredient') {
       title = "Add Ingredient";
       content = "The AI wants to add a new ingredient to your saved recipe. Do you agree?";
+    } else if (action == 'create_recipe') {
+      title = "Create Recipe";
+      content = "The AI wants to create a new saved recipe. Do you agree?";
     }
 
     final result = await showDialog<bool>(
@@ -157,11 +163,17 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
   }
 
   Widget _buildChatWindow() {
-    return Column(
-      children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+    return OverflowBox(
+      minWidth: 350,
+      maxWidth: 350,
+      minHeight: 550,
+      maxHeight: 550,
+      alignment: Alignment.topLeft,
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFF22C55E), Color(0xFF059669)],
@@ -269,8 +281,9 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildEmptyState() {
     return Center(

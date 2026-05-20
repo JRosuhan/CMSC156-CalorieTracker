@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../services/edamam_service.dart';
 import '../providers/food_log_provider.dart';
+import '../providers/data_providers.dart';
 
 class AddFoodScreenWrapper extends StatelessWidget {
   const AddFoodScreenWrapper({super.key});
@@ -47,7 +48,7 @@ class _AddFoodScreenContentState extends ConsumerState<AddFoodScreenContent> {
   @override
   void initState() {
     super.initState();
-    _edamamService = EdamamService();
+    _edamamService = ref.read(edamamServiceProvider);
     _foodResults = [];
   }
 
@@ -385,7 +386,12 @@ class _FoodResultCardState extends State<_FoodResultCard> {
                 child: widget.food['image'] != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(widget.food['image'], fit: BoxFit.cover),
+                        child: Image.network(
+                          'https://wsrv.nl/?url=${Uri.encodeComponent(widget.food['image'])}',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.broken_image, color: Colors.grey),
+                        ),
                       )
                     : const Icon(Icons.fastfood, color: Color(0xFF10B981)),
               ),

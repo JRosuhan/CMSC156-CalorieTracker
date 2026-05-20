@@ -8,11 +8,10 @@ import '../models/recipe_model.dart';
 import 'dart:convert';
 
 class ChatbotApiService {
-  static final ChatbotApiService _instance = ChatbotApiService._internal();
-  factory ChatbotApiService() => _instance;
-
-  final FirebaseService _firebaseService = FirebaseService();
-  final EdamamService _edamamService = EdamamService();
+  static ChatbotApiService? _instance;
+  
+  final FirebaseService _firebaseService;
+  final EdamamService _edamamService;
   
   late final String _apiKey;
   final String _baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
@@ -25,12 +24,30 @@ class ChatbotApiService {
   final List<Map<String, dynamic>> _history = [];
   final List<Map<String, String>> uiMessages = [];
 
-  ChatbotApiService._internal() {
+  ChatbotApiService._internal({
+    FirebaseService? firebaseService,
+    EdamamService? edamamService,
+  }) : _firebaseService = firebaseService ?? FirebaseService(),
+       _edamamService = edamamService ?? EdamamService() {
     _apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
     debugPrint('DEBUG: Groq API Key loaded: ${_apiKey.isNotEmpty ? "YES (${_apiKey.substring(0, 5)}...)" : "NO"}');
     
     _resetHistory();
   }
+
+  factory ChatbotApiService({
+    FirebaseService? firebaseService,
+    EdamamService? edamamService,
+  }) {
+    _instance ??= ChatbotApiService._internal(
+      firebaseService: firebaseService,
+      edamamService: edamamService,
+    );
+    return _instance!;
+  }
+
+  @visibleForTesting
+  static void resetInstance() => _instance = null;
 
   void _resetHistory() {
     _history.clear();
@@ -87,6 +104,21 @@ class ChatbotApiService {
     {
       'type': 'function',
       'function': {
+        'name': 'create_recipe',
+        'description': 'Creates a new empty saved recipe with a name and serving count.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'name': {'type': 'string', 'description': 'The name of the new recipe.'},
+            'servings': {'type': 'number', 'description': 'The number of servings the recipe makes.'},
+          },
+          'required': ['name', 'servings'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
         'name': 'log_recipe',
         'description': 'Logs a saved recipe as a food entry.',
         'parameters': {
@@ -133,6 +165,18 @@ class ChatbotApiService {
             'baseProtein': {'type': 'number', 'description': 'Base protein per 100g or per unit.'},
             'baseCarbs': {'type': 'number', 'description': 'Base carbs per 100g or per unit.'},
             'baseFats': {'type': 'number', 'description': 'Base fats per 100g or per unit.'},
+            'availableMeasures': {
+              'type': 'array',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'label': {'type': 'string'},
+                  'weight': {'type': 'number'}
+                }
+              },
+              'description': 'Array of available measures. Usually at least [{"label": "gram", "weight": 1.0}, {"label": "serving", "weight": 100.0}].'
+            },
+            'selectedMeasureIndex': {'type': 'number', 'description': 'Index of the selected measure in the availableMeasures array.'},
           },
           'required': ['name', 'calories', 'servingSize'],
         },
@@ -158,6 +202,18 @@ class ChatbotApiService {
             'baseProtein': {'type': 'number', 'description': 'Base protein per 100g or per unit.'},
             'baseCarbs': {'type': 'number', 'description': 'Base carbs per 100g or per unit.'},
             'baseFats': {'type': 'number', 'description': 'Base fats per 100g or per unit.'},
+            'availableMeasures': {
+              'type': 'array',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'label': {'type': 'string'},
+                  'weight': {'type': 'number'}
+                }
+              },
+              'description': 'Array of available measures. Usually at least [{"label": "gram", "weight": 1.0}, {"label": "serving", "weight": 100.0}].'
+            },
+            'selectedMeasureIndex': {'type': 'number', 'description': 'Index of the selected measure in the availableMeasures array.'},
           },
           'required': ['recipe_id', 'name', 'calories', 'servingSize'],
         },
@@ -324,7 +380,7 @@ class ChatbotApiService {
           
           String friendlyError = "I'm having trouble with the API right now.";
           if (response.statusCode == 429) {
-            friendlyError = "The AI is currently at its daily limit. Please try again tomorrow.";
+            friendlyError = "The AI is receiving too many requests right now. Please wait a minute and try again.";
           }
           throw Exception('$friendlyError (${response.statusCode})');
         }
@@ -446,6 +502,9 @@ class ChatbotApiService {
     return calls;
   }
 
+  @visibleForTesting
+  Future<Map<String, dynamic>> handleFunctionCall(String name, Map<String, dynamic> params) => _handleFunctionCall(name, params);
+
   Future<Map<String, dynamic>> _handleFunctionCall(String name, Map<String, dynamic> params) async {
     switch (name) {
       case 'get_daily_summary':
@@ -499,6 +558,18 @@ class ChatbotApiService {
             }).toList()
           }).toList()
         };
+
+      case 'create_recipe':
+        final name = params['name'] as String;
+        final servings = (params['servings'] as num? ?? 1).toInt();
+        final newRecipe = RecipeModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          ingredients: [],
+          servings: servings,
+        );
+        await _firebaseService.addRecipe(newRecipe);
+        return {'status': 'success', 'message': 'Recipe "$name" created.', 'recipe_id': newRecipe.id};
 
       case 'log_recipe':
         final recipeId = params['recipe_id'] as String;
@@ -569,6 +640,12 @@ class ChatbotApiService {
         }
 
       case 'add_food_log':
+        final List? rawMeasures = params['availableMeasures'] as List?;
+        final List<Map<String, dynamic>> availableMeasures = rawMeasures != null 
+            ? rawMeasures.map((m) => Map<String, dynamic>.from(m)).toList() 
+            : [{'label': 'serving', 'weight': 100.0}];
+        final int selectedMeasureIndex = (params['selectedMeasureIndex'] as num? ?? 0).toInt();
+
         final log = FoodLog(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: params['name'] as String? ?? 'Unknown Food',
@@ -579,8 +656,8 @@ class ChatbotApiService {
           servingSize: params['servingSize'] as String? ?? '1 serving',
           timestamp: DateTime.now(),
           quantity: (params['quantity'] as num? ?? 1.0).toDouble(),
-          availableMeasures: [{'label': 'serving', 'weight': 100.0}],
-          selectedMeasureIndex: 0,
+          availableMeasures: availableMeasures,
+          selectedMeasureIndex: selectedMeasureIndex,
           baseCalories: (params['baseCalories'] as num? ?? (params['calories'] as num? ?? 0)).toInt(),
           baseProtein: (params['baseProtein'] as num? ?? (params['protein'] as num? ?? 0.0)).toDouble(),
           baseCarbs: (params['baseCarbs'] as num? ?? (params['carbs'] as num? ?? 0.0)).toDouble(),
@@ -595,6 +672,12 @@ class ChatbotApiService {
         final recipes = await _firebaseService.getRecipesStream().first;
         try {
           final recipe = recipes.firstWhere((r) => r.id == recipeId);
+          final List? rawMeasures = params['availableMeasures'] as List?;
+          final List<Map<String, dynamic>> availableMeasures = rawMeasures != null 
+              ? rawMeasures.map((m) => Map<String, dynamic>.from(m)).toList() 
+              : [{'label': 'serving', 'weight': 100.0}];
+          final int selectedMeasureIndex = (params['selectedMeasureIndex'] as num? ?? 0).toInt();
+
           final newIngredient = FoodLog(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             name: params['name'] as String? ?? 'Unknown Food',
@@ -605,8 +688,8 @@ class ChatbotApiService {
             servingSize: params['servingSize'] as String? ?? '1 serving',
             timestamp: DateTime.now(),
             quantity: (params['quantity'] as num? ?? 1.0).toDouble(),
-            availableMeasures: [{'label': 'serving', 'weight': 100.0}],
-            selectedMeasureIndex: 0,
+            availableMeasures: availableMeasures,
+            selectedMeasureIndex: selectedMeasureIndex,
             baseCalories: (params['baseCalories'] as num? ?? (params['calories'] as num? ?? 0)).toInt(),
             baseProtein: (params['baseProtein'] as num? ?? (params['protein'] as num? ?? 0.0)).toDouble(),
             baseCarbs: (params['baseCarbs'] as num? ?? (params['carbs'] as num? ?? 0.0)).toDouble(),
