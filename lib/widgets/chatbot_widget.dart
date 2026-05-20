@@ -39,7 +39,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
     });
     _scrollToBottom();
 
-    final response = await _apiService.sendMessage(
+    await _apiService.sendMessage(
       text,
       onConfirm: (action, params) async {
         return await _showConfirmationDialog(action, params);
@@ -121,7 +121,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
         borderRadius: BorderRadius.circular(_isExpanded ? 20 : 30),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

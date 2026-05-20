@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'food_log.dart';
 
 class RecipeModel {
@@ -106,7 +107,7 @@ class RecipeModel {
             baseFats: double.tryParse(d['baseFats']?.toString() ?? '0.0') ?? 0.0,
           );
         } catch (e) {
-          print('Error parsing ingredient: $e');
+          debugPrint('Error parsing ingredient: $e');
           return FoodLog(
             id: '', name: 'Error Loading Ingredient', calories: 0, protein: 0, carbs: 0, fats: 0,
             servingSize: '', timestamp: DateTime.now(), quantity: 1, availableMeasures: [],
@@ -123,7 +124,7 @@ class RecipeModel {
         isDeleted: isDeleted,
       );
     } catch (e) {
-      print('Error in RecipeModel.fromMap: $e');
+      debugPrint('Error in RecipeModel.fromMap: $e');
       return RecipeModel(id: id, name: 'Error Loading Recipe', ingredients: [], servings: 1);
     }
   }

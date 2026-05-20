@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/food_log.dart';
 import '../models/recipe_model.dart';
 import '../services/edamam_service.dart';
+import '../widgets/macro_info.dart';
+import '../widgets/serving_edit_dialog.dart';
 import 'dart:async';
 
 class RecipeBuilderScreen extends StatefulWidget {
@@ -125,156 +127,46 @@ class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
 
   void _editIngredient(int index) {
     final ing = _ingredients[index];
-    double currentQuantity = ing.quantity;
+    final List<Map<String, dynamic>> measures = ing.availableMeasures.isNotEmpty
+        ? ing.availableMeasures
+        : [
+            {'label': 'Serving', 'weight': 100.0}
+          ];
     int currentMeasureIndex = ing.selectedMeasureIndex;
-    final quantityController = TextEditingController(
-      text: currentQuantity.toString().replaceAll('.0', ''),
-    );
+    if (currentMeasureIndex < 0 || currentMeasureIndex >= measures.length) {
+      currentMeasureIndex = 0;
+    }
 
-    showDialog(
+    showServingEditDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final double unitWeight = ing.availableMeasures[currentMeasureIndex]['weight'] ?? 100.0;
-            final double totalWeight = currentQuantity * unitWeight;
-            final double factor = totalWeight / 100.0;
-
-            final int calculatedCalories = (ing.baseCalories * factor).toInt();
-            final double calculatedProtein = ing.baseProtein * factor;
-            final double calculatedCarbs = ing.baseCarbs * factor;
-            final double calculatedFats = ing.baseFats * factor;
-
-            return AlertDialog(
-              title: Text('Edit ${ing.name}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Adjust serving size:'),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 70,
-                        child: TextField(
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          controller: quantityController,
-                          onChanged: (val) {
-                            setDialogState(() {
-                              currentQuantity = double.tryParse(val) ?? 0.0;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: currentMeasureIndex,
-                              isExpanded: true,
-                              items: List.generate(ing.availableMeasures.length, (i) {
-                                return DropdownMenuItem(
-                                  value: i,
-                                  child: Text(ing.availableMeasures[i]['label']?.toString() ?? 'Serving'),
-                                );
-                              }),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    currentMeasureIndex = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Total:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text(
-                              '$calculatedCalories cal',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: Color(0xFF059669),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _macroInfo('P', '${calculatedProtein.toStringAsFixed(1)}g'),
-                            _macroInfo('C', '${calculatedCarbs.toStringAsFixed(1)}g'),
-                            _macroInfo('F', '${calculatedFats.toStringAsFixed(1)}g'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final String unitLabel = ing.availableMeasures[currentMeasureIndex]['label']?.toString() ?? 'Serving';
-                    setState(() {
-                      _ingredients[index] = FoodLog(
-                        id: ing.id,
-                        name: ing.name,
-                        calories: calculatedCalories,
-                        protein: ing.baseProtein * factor,
-                        carbs: ing.baseCarbs * factor,
-                        fats: ing.baseFats * factor,
-                        servingSize: currentQuantity == 1.0 ? unitLabel : '${currentQuantity.toString().replaceAll('.0', '')} $unitLabel',
-                        timestamp: ing.timestamp,
-                        quantity: currentQuantity,
-                        availableMeasures: ing.availableMeasures,
-                        selectedMeasureIndex: currentMeasureIndex,
-                        baseCalories: ing.baseCalories,
-                        baseProtein: ing.baseProtein,
-                        baseCarbs: ing.baseCarbs,
-                        baseFats: ing.baseFats,
-                      );
-                    });
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-                  child: const Text('Update', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            );
-          },
-        );
+      title: 'Edit ${ing.name}',
+      initialQuantity: ing.quantity,
+      initialMeasureIndex: currentMeasureIndex,
+      measures: measures,
+      baseCalories: ing.baseCalories,
+      baseProtein: ing.baseProtein,
+      baseCarbs: ing.baseCarbs,
+      baseFats: ing.baseFats,
+      onSave: (result) {
+        setState(() {
+          _ingredients[index] = FoodLog(
+            id: ing.id,
+            name: ing.name,
+            calories: result.calories,
+            protein: result.protein,
+            carbs: result.carbs,
+            fats: result.fats,
+            servingSize: result.servingSize,
+            timestamp: ing.timestamp,
+            quantity: result.quantity,
+            availableMeasures: measures,
+            selectedMeasureIndex: result.measureIndex,
+            baseCalories: ing.baseCalories,
+            baseProtein: ing.baseProtein,
+            baseCarbs: ing.baseCarbs,
+            baseFats: ing.baseFats,
+          );
+        });
       },
     );
   }
@@ -329,15 +221,6 @@ class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
         });
       }
     }
-  }
-
-  Widget _macroInfo(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      ],
-    );
   }
 
   @override
@@ -466,9 +349,9 @@ class _RecipeBuilderScreenState extends State<RecipeBuilderScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _macroInfo('P', '${proteinPerServing.toStringAsFixed(1)}g'),
-                    _macroInfo('C', '${carbsPerServing.toStringAsFixed(1)}g'),
-                    _macroInfo('F', '${fatsPerServing.toStringAsFixed(1)}g'),
+                    MacroInfo(label: 'P', value: '${proteinPerServing.toStringAsFixed(1)}g'),
+                    MacroInfo(label: 'C', value: '${carbsPerServing.toStringAsFixed(1)}g'),
+                    MacroInfo(label: 'F', value: '${fatsPerServing.toStringAsFixed(1)}g'),
                   ],
                 ),
               ],

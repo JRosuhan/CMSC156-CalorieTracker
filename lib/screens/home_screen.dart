@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/food_log.dart';
 import '../widgets/chatbot_widget.dart';
+import '../widgets/macro_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
@@ -57,10 +58,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final totalFats = dailyLogs.fold(0.0, (sum, item) => sum + item.fats);
 
-    final progress = (totalCalories / widget.user.dailyCalorieGoal).clamp(
-      0.0,
-      1.0,
-    );
+    final goal = widget.user.dailyCalorieGoal;
+    final progress = goal > 0
+        ? (totalCalories / goal).clamp(0.0, 1.0)
+        : 0.0;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -109,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           vertical: 6,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.2),
+                                          color: Colors.white.withValues(alpha: 0.2),
                                           borderRadius: BorderRadius.circular(20),
                                         ),
                                         child: Row(
@@ -156,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Column(
@@ -223,22 +224,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Row(
                                 children: [
-                                  macroCard(
-                                    'Protein',
-                                    '${totalProtein.toStringAsFixed(1)}g',
-                                    Colors.blue,
+                                  MacroCard(
+                                    title: 'Protein',
+                                    value: '${totalProtein.toStringAsFixed(1)}g',
+                                    color: Colors.blue,
                                   ),
                                   const SizedBox(width: 8),
-                                  macroCard(
-                                    'Carbs',
-                                    '${totalCarbs.toStringAsFixed(1)}g',
-                                    Colors.orange,
+                                  MacroCard(
+                                    title: 'Carbs',
+                                    value: '${totalCarbs.toStringAsFixed(1)}g',
+                                    color: Colors.orange,
                                   ),
                                   const SizedBox(width: 8),
-                                  macroCard(
-                                    'Fats',
-                                    '${totalFats.toStringAsFixed(1)}g',
-                                    Colors.purple,
+                                  MacroCard(
+                                    title: 'Fats',
+                                    value: '${totalFats.toStringAsFixed(1)}g',
+                                    color: Colors.purple,
                                   ),
                                 ],
                               ),
@@ -339,32 +340,6 @@ class _HomeScreenState extends State<HomeScreen> {
               bottom: 80, // Positioned above the FAB
               child: ChatbotWidget(),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget macroCard(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(title, style: const TextStyle(fontSize: 12)),
           ],
         ),
       ),

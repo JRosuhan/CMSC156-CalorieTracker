@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'firebase_service.dart';
@@ -27,7 +28,7 @@ class ChatbotApiService {
 
   ChatbotApiService._internal() {
     _apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
-    print('DEBUG: Groq API Key loaded: ${_apiKey.isNotEmpty ? "YES (${_apiKey.substring(0, 5)}...)" : "NO"}');
+    debugPrint('DEBUG: Groq API Key loaded: ${_apiKey.isNotEmpty ? "YES (${_apiKey.substring(0, 5)}...)" : "NO"}');
     
     _resetHistory();
   }
@@ -274,7 +275,7 @@ class ChatbotApiService {
         if (response.statusCode != 200) {
           // Handle Rate Limit (429) with Fallback
           if (response.statusCode == 429 && _currentModel == _primaryModel) {
-            print('DEBUG: Primary model rate limited. Switching to fallback...');
+            debugPrint('DEBUG: Primary model rate limited. Switching to fallback...');
             _currentModel = _fallbackModel;
             continue; // Retry immediately with fallback model
           }
@@ -283,7 +284,7 @@ class ChatbotApiService {
             final errorData = jsonDecode(response.body);
             final failedGen = errorData['error']['failed_generation'] as String?;
             if (failedGen != null && failedGen.contains('<function=')) {
-              print('DEBUG: Recovering tool call from failed_generation: $failedGen');
+              debugPrint('DEBUG: Recovering tool call from failed_generation: $failedGen');
               final recoveredCalls = _parseHallucinatedToolCalls(failedGen);
               if (recoveredCalls.isNotEmpty) {
                 for (final call in recoveredCalls) {
@@ -372,7 +373,7 @@ class ChatbotApiService {
                   functionArgs = Map<String, dynamic>.from(decoded);
                 }
               } catch (e) {
-                print('DEBUG: Error decoding tool arguments: $e');
+                debugPrint('DEBUG: Error decoding tool arguments: $e');
               }
             }
 
@@ -414,7 +415,7 @@ class ChatbotApiService {
         return responseText;
       }
     } catch (e) {
-      print('AI Error: $e');
+      debugPrint('AI Error: $e');
       final errorMsg = e.toString().contains('Exception:') 
           ? e.toString().replaceFirst('Exception: ', '')
           : "I'm having trouble with that request right now. ($e)";
@@ -440,7 +441,7 @@ class ChatbotApiService {
         final args = jsonDecode(jsonStr);
         calls.add({'name': name, 'args': Map<String, dynamic>.from(args)});
       } catch (e) {
-        print('DEBUG: Failed to parse hallucinated JSON: $jsonStr');
+        debugPrint('DEBUG: Failed to parse hallucinated JSON: $jsonStr');
       }
     }
     return calls;
@@ -458,7 +459,7 @@ class ChatbotApiService {
         try {
           date = DateTime.parse(dateStr);
         } catch (e) {
-          print('DEBUG: Invalid date format: $dateStr. Falling back to today.');
+          debugPrint('DEBUG: Invalid date format: $dateStr. Falling back to today.');
           date = DateTime.now();
         }
         final logs = await _firebaseService.getFoodLogsStream().first;
@@ -529,7 +530,12 @@ class ChatbotApiService {
             timestamp: DateTime.now(),
             quantity: quantity,
             availableMeasures: [
-              {'label': unit, 'weight': unit == 'Servings' ? (recipe.totalWeight / recipe.servings) : 1.0}
+              {
+                'label': unit,
+                'weight': unit == 'Servings'
+                    ? (recipe.servings > 0 ? (recipe.totalWeight / recipe.servings) : 1.0)
+                    : 1.0
+              }
             ],
             selectedMeasureIndex: 0,
             baseCalories: recipe.caloriesPer100g.toInt(),
@@ -628,7 +634,17 @@ class ChatbotApiService {
           final newQuantity = (params['quantity'] as num? ?? existing.quantity).toDouble();
           final newMeasureIndex = (params['selectedMeasureIndex'] as num? ?? existing.selectedMeasureIndex).toInt();
           
-          final weight = existing.availableMeasures[newMeasureIndex]['weight'] as double;
+          final measures = existing.availableMeasures.isNotEmpty
+              ? existing.availableMeasures
+              : [
+                  {'label': 'serving', 'weight': 100.0}
+                ];
+          int safeMeasureIndex = newMeasureIndex;
+          if (safeMeasureIndex < 0 || safeMeasureIndex >= measures.length) {
+            safeMeasureIndex = 0;
+          }
+          final weightValue = measures[safeMeasureIndex]['weight'];
+          final weight = (weightValue is num) ? weightValue.toDouble() : 100.0;
           final multiplier = (weight / 100.0) * newQuantity;
 
           final updated = FoodLog(
@@ -638,13 +654,13 @@ class ChatbotApiService {
             protein: existing.baseProtein * multiplier,
             carbs: existing.baseCarbs * multiplier,
             fats: existing.baseFats * multiplier,
-            servingSize: existing.availableMeasures[newMeasureIndex]['label'] == 'serving' 
+            servingSize: measures[safeMeasureIndex]['label'] == 'serving' 
                 ? (newQuantity == 1.0 ? '1 serving' : '${newQuantity.toString().replaceAll('.0', '')} servings')
                 : '${(newQuantity * weight).toString().replaceAll('.0', '')} g',
             timestamp: existing.timestamp,
             quantity: newQuantity,
-            availableMeasures: existing.availableMeasures,
-            selectedMeasureIndex: newMeasureIndex,
+            availableMeasures: measures,
+            selectedMeasureIndex: safeMeasureIndex,
             baseCalories: existing.baseCalories,
             baseProtein: existing.baseProtein,
             baseCarbs: existing.baseCarbs,
@@ -703,7 +719,17 @@ class ChatbotApiService {
           if (index == -1) return {'error': 'Ingredient "$ingredientName" not found in recipe.'};
           
           final existing = recipe.ingredients[index];
-          final weight = existing.availableMeasures[existing.selectedMeasureIndex]['weight'] as double;
+          final measures = existing.availableMeasures.isNotEmpty
+              ? existing.availableMeasures
+              : [
+                  {'label': 'serving', 'weight': 100.0}
+                ];
+          int safeMeasureIndex = existing.selectedMeasureIndex;
+          if (safeMeasureIndex < 0 || safeMeasureIndex >= measures.length) {
+            safeMeasureIndex = 0;
+          }
+          final weightValue = measures[safeMeasureIndex]['weight'];
+          final weight = (weightValue is num) ? weightValue.toDouble() : 100.0;
           final multiplier = (weight / 100.0) * newQuantity;
 
           final updatedIngredient = FoodLog(
@@ -713,13 +739,13 @@ class ChatbotApiService {
             protein: existing.baseProtein * multiplier,
             carbs: existing.baseCarbs * multiplier,
             fats: existing.baseFats * multiplier,
-            servingSize: existing.availableMeasures[existing.selectedMeasureIndex]['label'] == 'serving' 
+            servingSize: measures[safeMeasureIndex]['label'] == 'serving' 
                 ? (newQuantity == 1.0 ? '1 serving' : '${newQuantity.toString().replaceAll('.0', '')} servings')
                 : '${(newQuantity * weight).toString().replaceAll('.0', '')} g',
             timestamp: existing.timestamp,
             quantity: newQuantity,
-            availableMeasures: existing.availableMeasures,
-            selectedMeasureIndex: existing.selectedMeasureIndex,
+            availableMeasures: measures,
+            selectedMeasureIndex: safeMeasureIndex,
             baseCalories: existing.baseCalories,
             baseProtein: existing.baseProtein,
             baseCarbs: existing.baseCarbs,

@@ -305,7 +305,9 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
                 const Icon(Icons.calculate, color: Colors.blue),
                 const SizedBox(width: 12),
                 Text(
-                  'Current BMI: ${(weight / ((height / 100) * (height / 100))).toStringAsFixed(1)}',
+                  height > 0
+                      ? 'Current BMI: ${(weight / ((height / 100) * (height / 100))).toStringAsFixed(1)}'
+                      : 'Current BMI: N/A',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
@@ -359,7 +361,7 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -382,7 +384,7 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.green.withOpacity(0.08) : Colors.white,
+                  color: isSelected ? Colors.green.withValues(alpha: 0.08) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isSelected ? const Color(0xFF10B981) : Colors.grey.shade300,
@@ -415,7 +417,7 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -490,7 +492,7 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
       label: Text(label),
       selected: isSelected,
       onSelected: onSelected,
-      selectedColor: const Color(0xFF10B981).withOpacity(0.2),
+      selectedColor: const Color(0xFF10B981).withValues(alpha: 0.2),
       labelStyle: TextStyle(
         color: isSelected ? const Color(0xFF059669) : Colors.black,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
