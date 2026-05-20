@@ -93,14 +93,18 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Text(content),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Confirm"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("Confirm", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -111,31 +115,43 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      width: _isExpanded ? 350 : 60,
-      height: _isExpanded ? 500 : 60,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.fastOutSlowIn,
+      width: _isExpanded ? 350 : 65,
+      height: _isExpanded ? 550 : 65,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(_isExpanded ? 20 : 30),
+        borderRadius: BorderRadius.circular(_isExpanded ? 28 : 32.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF10B981).withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: _isExpanded ? _buildChatWindow() : _buildChatButton(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_isExpanded ? 28 : 32.5),
+        child: _isExpanded ? _buildChatWindow() : _buildChatButton(),
+      ),
     );
   }
 
   Widget _buildChatButton() {
     return GestureDetector(
       onTap: _toggleChat,
-      child: const Center(
-        child: Icon(Icons.chat, color: Color(0xFF10B981), size: 30),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF4ADE80), Color(0xFF059669)],
+          ),
+        ),
+        child: const Center(
+          child: Icon(Icons.auto_awesome, color: Colors.white, size: 30),
+        ),
       ),
     );
   }
@@ -145,20 +161,31 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
       children: [
         // Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
           decoration: const BoxDecoration(
-            color: Color(0xFF10B981),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
+            gradient: LinearGradient(
+              colors: [Color(0xFF22C55E), Color(0xFF059669)],
             ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'AI Nutrition Assistant',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NomNom Assistant',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Online • Always ready to help',
+                      style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.white, size: 20),
@@ -169,55 +196,73 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
         ),
         // Messages
         Expanded(
-          child: _messages.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = _messages[index];
-                    final isUser = msg['role'] == 'user';
-                    return _buildMessageBubble(msg['text'] ?? '', isUser);
-                  },
-                ),
+          child: Container(
+            color: const Color(0xFFF8F9FA),
+            child: _messages.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = _messages[index];
+                      final isUser = msg['role'] == 'user';
+                      return _buildMessageBubble(msg['text'] ?? '', isUser);
+                    },
+                  ),
+          ),
         ),
         if (_isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+          Container(
+            color: const Color(0xFFF8F9FA),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: const Center(
+              child: SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+              ),
             ),
           ),
         // Input
-        Padding(
-          padding: const EdgeInsets.all(8.0),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+          ),
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _controller,
-                  onSubmitted: (_) => _sendMessage(),
-                  decoration: InputDecoration(
-                    hintText: 'Ask me anything...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide.none,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    onSubmitted: (_) => _sendMessage(),
+                    decoration: const InputDecoration(
+                      hintText: 'Ask for a summary or log food...',
+                      hintStyle: TextStyle(fontSize: 13),
+                      border: InputBorder.none,
+                      isDense: true,
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               GestureDetector(
                 onTap: _sendMessage,
-                child: const CircleAvatar(
-                  backgroundColor: Color(0xFF10B981),
-                  child: Icon(Icons.send, color: Colors.white, size: 20),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
                 ),
               ),
             ],
@@ -232,11 +277,27 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.auto_awesome, color: Colors.grey[400], size: 50),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.auto_awesome, color: Color(0xFF10B981), size: 40),
+          ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'How can I help you today?',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Try "What did I eat today?" or "Log a cheeseburger for me"',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -247,21 +308,33 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFF10B981) : Colors.grey[200],
+          color: isUser ? const Color(0xFF10B981) : Colors.white,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(isUser ? 12 : 0),
-            bottomRight: Radius.circular(isUser ? 0 : 12),
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isUser ? 18 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 18),
           ),
+          boxShadow: [
+            if (!isUser)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Text(
           text,
-          style: TextStyle(color: isUser ? Colors.white : Colors.black),
+          style: TextStyle(
+            color: isUser ? Colors.white : Colors.black87,
+            fontSize: 14,
+            height: 1.4,
+          ),
         ),
       ),
     );

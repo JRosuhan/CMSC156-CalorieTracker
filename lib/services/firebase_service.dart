@@ -18,10 +18,17 @@ class FirebaseService {
 
   Future<UserCredential?> signUp(String email, String password) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(
+      final result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      if (result.user != null) {
+        await _db.collection('users').doc(result.user!.uid).set({
+          'email': email,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      return result;
     } catch (e) {
       debugPrint('Sign Up Error: $e');
       rethrow;
@@ -42,6 +49,23 @@ class FirebaseService {
 
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  Future<bool> emailExists(String email) async {
+    final snapshot = await _db
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .get();
+    return snapshot.docs.isNotEmpty;
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      debugPrint('Password Reset Error: $e');
+      rethrow;
+    }
   }
 
   // --- USER DATA (GOAL) ---
@@ -223,6 +247,7 @@ class FirebaseService {
               baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
               baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),
               baseFats: (data['baseFats'] ?? 0.0).toDouble(),
+              fromRecipe: data['fromRecipe'] ?? false,
             );
           })
           .where((log) => !log.isDeleted)
@@ -255,6 +280,7 @@ class FirebaseService {
       'baseProtein': log.baseProtein,
       'baseCarbs': log.baseCarbs,
       'baseFats': log.baseFats,
+      'fromRecipe': log.fromRecipe,
     });
   }
 
@@ -335,6 +361,7 @@ class FirebaseService {
           baseProtein: (data['baseProtein'] ?? 0.0).toDouble(),
           baseCarbs: (data['baseCarbs'] ?? 0.0).toDouble(),
           baseFats: (data['baseFats'] ?? 0.0).toDouble(),
+          fromRecipe: data['fromRecipe'] ?? false,
         );
       }).toList();
     });

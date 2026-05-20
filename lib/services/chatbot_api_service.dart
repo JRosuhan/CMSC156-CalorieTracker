@@ -6,7 +6,6 @@ import 'edamam_service.dart';
 import '../models/food_log.dart';
 import '../models/recipe_model.dart';
 import 'dart:convert';
-import 'dart:async';
 
 class ChatbotApiService {
   static final ChatbotApiService _instance = ChatbotApiService._internal();
@@ -542,6 +541,7 @@ class ChatbotApiService {
             baseProtein: recipe.proteinPer100g,
             baseCarbs: recipe.carbsPer100g,
             baseFats: recipe.fatsPer100g,
+            fromRecipe: true,
           );
           await _firebaseService.addFoodLog(newLog);
           return {'status': 'success', 'message': 'Logged ${recipe.name}'};
@@ -585,6 +585,7 @@ class ChatbotApiService {
           baseProtein: (params['baseProtein'] as num? ?? (params['protein'] as num? ?? 0.0)).toDouble(),
           baseCarbs: (params['baseCarbs'] as num? ?? (params['carbs'] as num? ?? 0.0)).toDouble(),
           baseFats: (params['baseFats'] as num? ?? (params['fats'] as num? ?? 0.0)).toDouble(),
+          fromRecipe: false,
         );
         await _firebaseService.addFoodLog(log);
         return {'status': 'success', 'added': log.name};

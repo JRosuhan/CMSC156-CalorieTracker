@@ -19,6 +19,7 @@ class FoodLog {
   final double baseProtein;
   final double baseCarbs;
   final double baseFats;
+  final bool fromRecipe;
 
   FoodLog({
     required this.id,
@@ -37,5 +38,6 @@ class FoodLog {
     required this.baseProtein,
     required this.baseCarbs,
     required this.baseFats,
+    this.fromRecipe = false,
   });
 }

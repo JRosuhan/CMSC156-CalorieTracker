@@ -1,21 +1,17 @@
-// screens/auth_screen.dart
-
 import 'package:flutter/material.dart';
-import '../services/firebase_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../providers/auth_provider.dart';
+import '../utils/error_translator.dart';
 
-class AuthScreen extends StatefulWidget {
-  final Function(String email) onLogin;
-
-  const AuthScreen({
-    super.key,
-    required this.onLogin,
-  });
+class AuthScreen extends ConsumerStatefulWidget {
+  const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool isSignUp = false;
   bool isLoading = false;
   String? errorMessage;
@@ -23,34 +19,29 @@ class _AuthScreenState extends State<AuthScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-  final FirebaseService _firebaseService = FirebaseService();
 
   void _showResetHint() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Password reset is not available yet.'),
-      ),
-    );
+    context.push('/forgot-password');
   }
 
   Future<void> handleSubmit() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       setState(() {
-        errorMessage = 'Please fill in all fields';
+        errorMessage = 'We need both your email and password to get started!';
       });
       return;
     }
 
     if (isSignUp && confirmPasswordController.text.isEmpty) {
       setState(() {
-        errorMessage = 'Please confirm your password';
+        errorMessage = 'Please verify your password to continue.';
       });
       return;
     }
 
     if (isSignUp && passwordController.text != confirmPasswordController.text) {
       setState(() {
-        errorMessage = 'Passwords do not match';
+        errorMessage = "Those passwords don't match. Give it another shot!";
       });
       return;
     }
@@ -62,21 +53,23 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (isSignUp) {
-        await _firebaseService.signUp(
+        await ref.read(userProvider.notifier).signUp(
           emailController.text.trim(),
           passwordController.text.trim(),
         );
       } else {
-        await _firebaseService.signIn(
+        await ref.read(userProvider.notifier).login(
           emailController.text.trim(),
           passwordController.text.trim(),
         );
       }
-      widget.onLogin(emailController.text.trim());
+      // Navigation is handled by GoRouter redirect logic
     } catch (e) {
-      setState(() {
-        errorMessage = e.toString().split(']').last.trim();
-      });
+      if (mounted) {
+        setState(() {
+          errorMessage = ErrorTranslator.translate(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -104,7 +97,6 @@ class _AuthScreenState extends State<AuthScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-
                 Container(
                   width: 90,
                   height: 90,
@@ -123,9 +115,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     color: Colors.white,
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 if (!isSignUp)
                   const Text(
                     'NomNomTracker',
@@ -136,32 +126,28 @@ class _AuthScreenState extends State<AuthScreen> {
                   )
                 else
                   const Text(
-                    'Create your account',
+                    'Join the journey!',
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                 const SizedBox(height: 8),
-
                 if (!isSignUp)
                   const Text(
-                    'Track your nutrition journey',
+                    "Let's reach your goals together.",
                     style: TextStyle(
                       color: Colors.grey,
                     ),
                   )
                 else
                   const Text(
-                    'Start tracking meals in minutes',
+                    'Start tracking your nutrition in seconds.',
                     style: TextStyle(
                       color: Colors.grey,
                     ),
                   ),
-
                 const SizedBox(height: 40),
-
                 if (errorMessage != null)
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -177,7 +163,6 @@ class _AuthScreenState extends State<AuthScreen> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -189,9 +174,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 TextField(
                   controller: passwordController,
                   obscureText: true,
@@ -203,7 +186,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                 ),
-
                 if (!isSignUp)
                   Align(
                     alignment: Alignment.centerRight,
@@ -215,7 +197,6 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     ),
                   ),
-
                 if (isSignUp) ...[
                   const SizedBox(height: 16),
                   TextField(
@@ -230,7 +211,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                 ],
-
                 if (isSignUp)
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
@@ -242,9 +222,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     ),
                   ),
-
                 const SizedBox(height: 24),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -274,9 +252,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 TextButton(
                   onPressed: () {
                     setState(() {
@@ -304,9 +280,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 40),
-
                 const Text(
                   'By continuing, you agree to our Terms & Privacy Policy',
                   style: TextStyle(

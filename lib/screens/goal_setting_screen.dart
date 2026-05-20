@@ -1,184 +1,224 @@
-// screens/goal_setting_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/user_model.dart';
+import '../providers/auth_provider.dart';
 import '../utils/calculator_utils.dart';
 
-class GoalSettingScreen extends StatefulWidget {
-  final String email;
-  final Function(UserModel userProfile) onSetGoal;
-
-  const GoalSettingScreen({
-    super.key,
-    required this.email,
-    required this.onSetGoal,
-  });
+class GoalSettingScreen extends ConsumerStatefulWidget {
+  const GoalSettingScreen({super.key});
 
   @override
-  State<GoalSettingScreen> createState() => _GoalSettingScreenState();
+  ConsumerState<GoalSettingScreen> createState() => _GoalSettingScreenState();
 }
 
-class _GoalSettingScreenState extends State<GoalSettingScreen> {
-  // Form Data
-  String gender = 'Male';
-  int age = 25;
-  double weight = 70.0;
-  double height = 170.0;
-  String activityLevel = 'Moderately Active';
-  String goalType = 'maintain';
-  double manualCalories = 2000;
-
-  // Controllers
-  late TextEditingController ageController;
-  late TextEditingController weightController;
-  late TextEditingController heightController;
-  late TextEditingController caloriesController;
-
-  final List<String> activityLevels = [
-    'Sedentary',
-    'Lightly Active',
-    'Moderately Active',
-    'Very Active',
-    'Extra Active'
-  ];
-
-  final List<Map<String, dynamic>> goalOptions = [
-    {
-      'type': 'cut',
-      'label': 'Cut',
-      'icon': Icons.trending_down,
-      'color1': const Color(0xFFEF4444),
-      'color2': const Color(0xFFF97316),
-      'description': 'Lose weight (~0.5kg/week)',
-    },
-    {
-      'type': 'maintain',
-      'label': 'Maintain',
-      'icon': Icons.remove,
-      'color1': const Color(0xFF3B82F6),
-      'color2': const Color(0xFF06B6D4),
-      'description': 'Stay at current weight',
-    },
-    {
-      'type': 'bulk',
-      'label': 'Bulk',
-      'icon': Icons.trending_up,
-      'color1': const Color(0xFFA855F7),
-      'color2': const Color(0xFFEC4899),
-      'description': 'Gain muscle/weight',
-    },
-  ];
+class _GoalSettingScreenState extends ConsumerState<GoalSettingScreen> {
+  final _formKey = GlobalKey<FormState>();
+  
+  late TextEditingController _ageController;
+  late TextEditingController _heightController;
+  late TextEditingController _weightController;
+  
+  String _gender = 'Male';
+  String _activityLevel = 'Sedentary';
+  String _goalType = 'Maintain';
+  int _calculatedGoal = 2000;
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with current values
-    ageController = TextEditingController(text: age.toString());
-    weightController = TextEditingController(text: weight.toString());
-    heightController = TextEditingController(text: height.toString());
-    caloriesController = TextEditingController(text: manualCalories.toInt().toString());
-
-    // Perform initial calculation without setState
-    final bmr = CalculatorUtils.calculateBMR(
-      gender: gender,
-      weight: weight,
-      height: height,
-      age: age,
-    );
-    final tdee = CalculatorUtils.calculateTDEE(bmr: bmr, activityLevel: activityLevel);
-    manualCalories = CalculatorUtils.calculateDailyGoal(tdee: tdee, goalType: goalType).toDouble();
-    caloriesController.text = manualCalories.toInt().toString();
+    final user = ref.read(userProvider);
+    _ageController = TextEditingController(text: user?.age?.toString() ?? '0');
+    _heightController = TextEditingController(text: user?.height?.toString() ?? '0');
+    _weightController = TextEditingController(text: user?.weight?.toString() ?? '0');
+    _gender = user?.gender ?? 'Male';
+    _activityLevel = user?.activityLevel ?? 'Sedentary';
+    _goalType = user?.goalType ?? 'Maintain';
+    _calculatedGoal = user?.dailyCalorieGoal ?? 2000;
   }
 
   @override
   void dispose() {
-    ageController.dispose();
-    weightController.dispose();
-    heightController.dispose();
-    caloriesController.dispose();
+    _ageController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
-  void _recalculateCalories({bool updateCaloriesField = true}) {
-    final bmr = CalculatorUtils.calculateBMR(
-      gender: gender,
-      weight: weight,
-      height: height,
-      age: age,
-    );
-    final tdee = CalculatorUtils.calculateTDEE(bmr: bmr, activityLevel: activityLevel);
-    setState(() {
-      manualCalories = CalculatorUtils.calculateDailyGoal(tdee: tdee, goalType: goalType).toDouble();
-      if (updateCaloriesField) {
-        caloriesController.text = manualCalories.toInt().toString();
-      }
-    });
-  }
+  void _updateCalculatedGoal() {
+    final double? weight = double.tryParse(_weightController.text);
+    final double? height = double.tryParse(_heightController.text);
+    final int? age = int.tryParse(_ageController.text);
 
-  void handleSubmit() {
-    final userProfile = UserModel(
-      email: widget.email,
-      dailyCalorieGoal: manualCalories.toInt(),
-      age: age,
-      gender: gender,
-      weight: weight,
-      height: height,
-      activityLevel: activityLevel,
-      goalType: goalType,
-    );
-    widget.onSetGoal(userProfile);
+    if (weight != null && height != null && age != null) {
+      final bmr = CalculatorUtils.calculateBMR(
+        gender: _gender,
+        weight: weight,
+        height: height,
+        age: age,
+      );
+      final tdee = CalculatorUtils.calculateTDEE(
+        bmr: bmr,
+        activityLevel: _activityLevel,
+      );
+      setState(() {
+        _calculatedGoal = CalculatorUtils.calculateDailyGoal(
+          tdee: tdee,
+          goalType: _goalType,
+        );
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile & Goals'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildSectionHeader('1. About You', 'Basic metabolic factors'),
-              _buildDemographicsPage(),
-              
-              _buildSectionHeader('2. Metrics', 'Weight and height info'),
-              _buildMetricsPage(),
-              
-              _buildSectionHeader('3. Lifestyle', 'How active is your daily routine?'),
-              _buildActivityPage(),
-              
-              _buildSectionHeader('4. Objective', 'What are you aiming for?'),
-              _buildGoalPage(),
-              
-              _buildSectionHeader('5. Your Plan', 'Recommended daily intake'),
-              _buildResultsPage(),
+    final user = ref.watch(userProvider);
+    if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7), // iOS Grouped Background
+      appBar: AppBar(
+        title: const Text('Goal Setting', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: user.needsSetup
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
+                onPressed: () => context.pop(),
+              ),
+      ),
+      body: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Target Display
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                child: Column(
+                  children: [
+                    const Text(
+                      'DAILY TARGET',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$_calculatedGoal',
+                      style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const Text(
+                      'calories',
+                      style: TextStyle(
+                        fontSize: 17,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              _buildSectionHeader('GOAL TYPE'),
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    _buildGoalCard('Cut', Icons.trending_down, const Color(0xFFEF4444)),
+                    const SizedBox(width: 12),
+                    _buildGoalCard('Maintain', Icons.balance, const Color(0xFF3B82F6)),
+                    const SizedBox(width: 12),
+                    _buildGoalCard('Bulk', Icons.trending_up, const Color(0xFF10B981)),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+              _buildSectionHeader('PERSONAL DETAILS'),
+              _buildGroupedContainer([
+                _buildPickerRow('Gender', _gender, ['Male', 'Female'], (val) {
+                  setState(() => _gender = val!);
+                  _updateCalculatedGoal();
+                }),
+                const Divider(height: 1, indent: 16),
+                _buildInputRow('Age', _ageController, 'years'),
+                const Divider(height: 1, indent: 16),
+                _buildInputRow('Height', _heightController, 'cm'),
+                const Divider(height: 1, indent: 16),
+                _buildInputRow('Weight', _weightController, 'kg'),
+              ]),
+
+              const SizedBox(height: 32),
+              _buildSectionHeader('LIFESTYLE'),
+              _buildGroupedContainer([
+                _buildPickerRow('Activity', _activityLevel, 
+                  ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active', 'Extra Active'], 
+                  (val) {
+                    setState(() => _activityLevel = val!);
+                    _updateCalculatedGoal();
+                  }
+                ),
+              ]),
+
+              const SizedBox(height: 40),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: handleSubmit,
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        final updatedUser = UserModel(
+                          email: user.email,
+                          dailyCalorieGoal: _calculatedGoal,
+                          age: int.tryParse(_ageController.text),
+                          gender: _gender,
+                          height: double.tryParse(_heightController.text),
+                          weight: double.tryParse(_weightController.text),
+                          activityLevel: _activityLevel,
+                          goalType: _goalType,
+                        );
+                        await ref.read(userProvider.notifier).setGoal(updatedUser);
+                        if (mounted) {
+                          if (!context.mounted) return;
+                          context.go('/');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Profile updated! Time to crush it. 🚀'),
+                              backgroundColor: Color(0xFF10B981),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
                     ),
                     child: const Text(
                       'Save Profile',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -186,316 +226,131 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, String subtitle) {
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: Color(0xFF6E6E73),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupedContainer(List<Widget> children) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildInputRow(String label, TextEditingController controller, String unit) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
         children: [
-          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          Text(label, style: const TextStyle(fontSize: 17)),
+          const Spacer(),
+          SizedBox(
+            width: 80,
+            child: TextFormField(
+              controller: controller,
+              textAlign: TextAlign.end,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => _updateCalculatedGoal(),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                suffixText: ' $unit',
+                suffixStyle: const TextStyle(color: Colors.grey, fontSize: 17),
+              ),
+              style: const TextStyle(fontSize: 17),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDemographicsPage() {
+  Widget _buildPickerRow(String label, String value, List<String> options, Function(String?) onChanged) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
         children: [
-          const SizedBox(height: 16),
-          const Text('Gender', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildChoiceChip('Male', gender == 'Male', (val) {
-                setState(() => gender = 'Male');
-                _recalculateCalories();
-              }),
-              const SizedBox(width: 12),
-              _buildChoiceChip('Female', gender == 'Female', (val) {
-                setState(() => gender = 'Female');
-                _recalculateCalories();
-              }),
+          Text(label, style: const TextStyle(fontSize: 17)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              underline: const SizedBox(),
+              icon: const Icon(Icons.chevron_right, color: Colors.grey),
+              onChanged: onChanged,
+              items: options.map((String val) {
+                return DropdownMenuItem<String>(
+                  value: val,
+                  child: Text(val, style: const TextStyle(fontSize: 17, color: Colors.blue)),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalCard(String type, IconData icon, Color color) {
+    final isSelected = _goalType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _goalType = type);
+          _updateCalculatedGoal();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : Colors.white,
+              width: 2,
+            ),
+            boxShadow: [
+              if (isSelected)
+                BoxShadow(
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text('Age', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: ageController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              hintText: 'Enter your age',
-              suffixText: 'years',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            onChanged: (val) {
-              final newAge = int.tryParse(val);
-              if (newAge != null) {
-                setState(() => age = newAge);
-                _recalculateCalories();
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricsPage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          const Text('Weight', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: weightController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              hintText: 'Enter weight',
-              suffixText: 'kg',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            onChanged: (val) {
-              final newWeight = double.tryParse(val);
-              if (newWeight != null) {
-                setState(() => weight = newWeight);
-                _recalculateCalories();
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-          const Text('Height', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: heightController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              hintText: 'Enter height',
-              suffixText: 'cm',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            onChanged: (val) {
-              final newHeight = double.tryParse(val);
-              if (newHeight != null) {
-                setState(() => height = newHeight);
-                _recalculateCalories();
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calculate, color: Colors.blue),
-                const SizedBox(width: 12),
-                Text(
-                  height > 0
-                      ? 'Current BMI: ${(weight / ((height / 100) * (height / 100))).toStringAsFixed(1)}'
-                      : 'Current BMI: N/A',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityPage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          ...activityLevels.map((level) {
-            final isSelected = activityLevel == level;
-            return GestureDetector(
-              onTap: () {
-                setState(() => activityLevel = level);
-                _recalculateCalories();
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.green.shade50 : Colors.white,
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF10B981) : Colors.grey.shade300,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                      color: isSelected ? const Color(0xFF10B981) : Colors.grey,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      level,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? const Color(0xFF059669) : Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGoalPage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          ...goalOptions.map((goal) {
-            final bool isSelected = goalType == goal['type'];
-            return GestureDetector(
-              onTap: () {
-                setState(() => goalType = goal['type']);
-                _recalculateCalories();
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.green.withValues(alpha: 0.08) : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF10B981) : Colors.grey.shade300,
-                    width: 2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [goal['color1'], goal['color2']]),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(goal['icon'], color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(goal['label'],
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(goal['description'], style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultsPage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              children: [
-                const Text('Your Daily Target', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: caloriesController,
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    suffixText: 'cal',
-                    suffixStyle: TextStyle(fontSize: 20, color: Colors.grey, fontWeight: FontWeight.normal),
-                  ),
-                  onChanged: (val) {
-                    final newCal = double.tryParse(val);
-                    if (newCal != null) {
-                      setState(() => manualCalories = newCal);
-                    }
-                  },
-                ),
-                const Text('Recommended for your profile', style: TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          child: Column(
             children: [
-              _buildMiniSummary(Icons.cake, '$age'),
-              _buildMiniSummary(Icons.monitor_weight, '${weight.toInt()}kg'),
-              _buildMiniSummary(Icons.height, '${height.toInt()}cm'),
-              _buildMiniSummary(Icons.bolt, goalType.toUpperCase()),
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : color,
+                size: 28,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                type,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniSummary(IconData icon, String value) {
-    return Column(
-      children: [
-        Icon(icon, size: 18, color: Colors.grey),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  Widget _buildChoiceChip(String label, bool isSelected, Function(bool) onSelected) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: onSelected,
-      selectedColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-      labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF059669) : Colors.black,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
     );
   }
